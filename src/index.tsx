@@ -745,9 +745,4 @@ class UserJourneyTracker {
     }
 }
 
-// Export as singleton and constructor
-// The singleton allows for easy use without creating a new instance
-const defaultTracker = new UserJourneyTracker();
-
-export { UserJourneyTracker, defaultTracker };
-export default defaultTracker;
+export default UserJourneyTracker;
