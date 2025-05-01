@@ -61,7 +61,7 @@ interface UserJourneyTrackerOptions {
  */
 class UserJourneyTracker {
     // API endpoint constant - hardcoded within the library
-    private readonly API_ENDPOINT: string = 'https://x6pr-kqwm-lfqn.n7d.xano.io/api:XrZOQHwS:v1/user_events';
+    private readonly API_ENDPOINT: string = 'https://16rz8s.buildship.run/events';
 
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
@@ -542,11 +542,14 @@ class UserJourneyTracker {
         try {
             // Prepare the payload
             const payload = {
-                uuid: this.uuid,
-                deriv_user_id: this.derivUserId || undefined,
-                old_uuid: this.oldUuid || undefined,
-                event: event,
-                timestamp: Date.now()
+                action: 'create',
+                data: {
+                    uuid: this.uuid,
+                    deriv_user_id: this.derivUserId || undefined,
+                    event_type: event, // e.g., "page view"
+                    // landing_page_url: this.landingPage || '', // Ensure this is defined in your context
+                    is_logged_in: this.isLoggedIn || false, // Ensure this is a boolean
+                }
             };
 
             // Send the event to the backend
