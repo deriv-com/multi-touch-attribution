@@ -348,9 +348,42 @@ class UserJourneyTracker {
             'gclid', 'fbclid', 'mkclid'
         ];
 
-        return attributionParams.some(param =>
+        const hasUrlParams = attributionParams.some(param =>
             newAttribution[param as keyof AttributionData] !== undefined
         );
+
+        const currentAttribution = this.currentAttribution;
+
+        const isDifferent = attributionParams.some(param =>
+            (newAttribution[param as keyof AttributionData] ?? '') !== (currentAttribution[param as keyof AttributionData] ?? '')
+        );
+
+        const referrer = typeof document !== 'undefined' ? document.referrer : '';
+        const isReferrerEmpty = !referrer || referrer.trim() === '';
+        const landingPage = window.location.hostname;
+        const isReferrerLandingPage = referrer && !isReferrerEmpty && referrer.includes(landingPage);
+
+        if (!hasUrlParams && (isReferrerEmpty || isReferrerLandingPage)) {
+            return false;
+        }
+
+        if (!hasUrlParams && !isReferrerEmpty && !isReferrerLandingPage) {
+            return true;
+        }
+
+        if (hasUrlParams && (isReferrerEmpty || isReferrerLandingPage)) {
+            return true;
+        }
+
+        if (hasUrlParams && !isReferrerEmpty && !isReferrerLandingPage) {
+            return true;
+        }
+
+        if (!isDifferent && (isReferrerEmpty || isReferrerLandingPage)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
