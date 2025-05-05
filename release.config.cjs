@@ -9,7 +9,7 @@ module.exports = {
         { name: 'beta', prerelease: true },
         { name: 'alpha', prerelease: true },
     ],
-    repositoryUrl: 'git@github.com:deriv-com/deriv-analytics.git',
+    repositoryUrl: 'git@github.com:deriv-com/multi-touch-attribution.git',
     plugins: [
         [
             '@semantic-release/commit-analyzer',
