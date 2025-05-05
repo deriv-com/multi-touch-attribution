@@ -560,7 +560,7 @@ class UserJourneyTracker {
                 },
                 body: JSON.stringify(payload),
                 // Use credentials to include cookies in cross-origin requests
-                // credentials: 'omit'
+                credentials: 'include'
             });
 
             if (!response.ok) {
