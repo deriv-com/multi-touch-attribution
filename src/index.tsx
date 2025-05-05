@@ -341,16 +341,48 @@ class UserJourneyTracker {
      */
     // TODO: update the logic basec on our discussion ith the team
     private hasNewAttributionData(newAttribution: AttributionData): boolean {
-        // Check if we have any UTM parameters or click IDs
         const attributionParams = [
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
             'utm_ad_id', 'utm_ad_group_id', 'utm_campaign_id',
             'gclid', 'fbclid', 'mkclid'
         ];
 
-        return attributionParams.some(param =>
+        const hasUrlParams = attributionParams.some(param =>
             newAttribution[param as keyof AttributionData] !== undefined
         );
+
+        const currentAttribution = this.currentAttribution;
+
+        const isDifferent = attributionParams.some(param =>
+            (newAttribution[param as keyof AttributionData] ?? '') !== (currentAttribution[param as keyof AttributionData] ?? '')
+        );
+
+        const referrer = typeof document !== 'undefined' ? document.referrer : '';
+        const isReferrerEmpty = !referrer || referrer.trim() === '';
+        const landingPage = window.location.hostname;
+        const isReferrerLandingPage = referrer && !isReferrerEmpty && referrer.includes(landingPage);
+
+        if (!hasUrlParams && (isReferrerEmpty || isReferrerLandingPage)) {
+            return false;
+        }
+
+        if (!hasUrlParams && !isReferrerEmpty && !isReferrerLandingPage) {
+            return true;
+        }
+
+        if (hasUrlParams && (isReferrerEmpty || isReferrerLandingPage)) {
+            return true;
+        }
+
+        if (hasUrlParams && !isReferrerEmpty && !isReferrerLandingPage) {
+            return true;
+        }
+
+        if (!isDifferent && (isReferrerEmpty || isReferrerLandingPage)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
