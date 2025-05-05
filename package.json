@@ -1,5 +1,5 @@
 {
-  "name": "event-tracker-test",
+  "name": "mta-event-tracker",
   "version": "0.0.0-development",
   "type": "module",
   "files": [
