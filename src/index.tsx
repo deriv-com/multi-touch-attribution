@@ -406,18 +406,48 @@ class UserJourneyTracker {
         if (typeof window === 'undefined' || !this.currentAttribution) return;
 
         try {
-            // Check if currentAttribution is empty
+            console.log('saveAttributionData called');
             if (Object.keys(this.currentAttribution).length === 0) {
+                console.log('currentAttribution is empty, returning');
                 return;
             }
 
-            // Convert minutes to days and ensure it's at least 1 day
+            const urlAttribution = this.parseAttributionData();
+            const urlHasParams = window.location.search.length > 0;
+            const attributionChanged = urlHasParams && Object.keys(urlAttribution).some(key => {
+                return urlAttribution[key as keyof AttributionData] !== this.currentAttribution[key as keyof AttributionData];
+            });
+            const urlParamsSameAsOld = !attributionChanged && urlHasParams;
+
+            const referrer = document.referrer || '';
+            const referrerIsEmpty = referrer.trim() === '';
+            const topLevelDomain = this.getTopLevelDomain();
+            const referrerContainsTopLevelDomain = referrer.includes(topLevelDomain);
+            const referrerChanged = !referrerIsEmpty && !referrerContainsTopLevelDomain;
+
+            // Update attribution if:
+            // - URL params changed, OR
+            // - URL params same as old AND referrer changed, OR
+            // - No URL params AND referrer changed
+            const shouldUpdateAttribution =
+                attributionChanged ||
+                (urlParamsSameAsOld && referrerChanged) ||
+                (!urlHasParams && referrerChanged);
+
+            if (shouldUpdateAttribution) {
+                this.currentAttribution = urlAttribution;
+            } else {
+                console.log('Not updating attribution due to conditions');
+            }
+
             const expiryDays = Math.max(1, Math.floor((this.options.attributionExpiry as number) / (60 * 24)));
 
-            // Store attribution data in a cookie
+            const cookieValue = JSON.stringify(this.currentAttribution);
+            console.log(`Setting cookie ${this.attributionCookieName} with value:`, cookieValue);
+
             this.setCookie(
                 this.attributionCookieName,
-                JSON.stringify(this.currentAttribution),
+                cookieValue,
                 expiryDays
             );
         } catch (e) {
