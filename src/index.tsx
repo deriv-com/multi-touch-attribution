@@ -110,11 +110,24 @@ class UserJourneyTracker {
     private getTopLevelDomain(): string {
         if (typeof window === 'undefined') return '';
 
-        const hostParts = window.location.hostname.split('.');
-        if (hostParts.length <= 1) return window.location.hostname;
+        const hostname = window.location.hostname;
 
-        // Return domain with leading dot for subdomain sharing
-        return '.' + hostParts.slice(-2).join('.');
+        // For localhost or IP addresses, don't set a domain
+        if (hostname === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+            return '';
+        }
+
+        // List of external domains where we should use the full hostname
+        const external_domains = ['webflow.io'];
+
+        // Check if the hostname ends with any of the external domains
+        const is_external_domain = external_domains.some(domain => hostname.endsWith(domain));
+
+        // If it's an external domain, use the full hostname, otherwise use the last two parts
+        const domain_name = is_external_domain ? hostname : hostname.split('.').slice(-2).join('.');
+
+        // Return domain with leading dot for subdomain sharing if not an external domain
+        return is_external_domain ? domain_name : '.' + domain_name;
     }
 
     /**
@@ -237,6 +250,30 @@ class UserJourneyTracker {
             this.setupAutoTracking();
         }
 
+        // Ensure we have at least basic attribution data
+        if (Object.keys(this.currentAttribution).length === 0) {
+            console.log('No attribution data found during init, creating basic attribution');
+            this.currentAttribution = {
+                landing_page: window.location.pathname,
+                attribution_timestamp: Date.now()
+            };
+
+            // If we have a referrer, add it
+            if (document.referrer) {
+                try {
+                    const referrerUrl = new URL(document.referrer);
+                    if (referrerUrl.hostname !== window.location.hostname) {
+                        this.currentAttribution.referrer = document.referrer;
+                    }
+                } catch (e) {
+                    // Invalid referrer URL
+                }
+            }
+
+            // Save this basic attribution data
+            this.saveAttributionData();
+        }
+
         // Track the current page view
         this.trackCurrentPageView();
 
@@ -331,6 +368,9 @@ class UserJourneyTracker {
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
 
+        // Add debugging
+        console.log('Parsed attribution data:', attribution);
+
         return attribution;
     }
 
@@ -339,7 +379,6 @@ class UserJourneyTracker {
      * @param newAttribution The attribution data from the current URL
      * @returns True if this is a new attribution source
      */
-    // TODO: update the logic basec on our discussion ith the team
     private hasNewAttributionData(newAttribution: AttributionData): boolean {
         // Check if we have any UTM parameters or click IDs
         const attributionParams = [
@@ -348,9 +387,22 @@ class UserJourneyTracker {
             'gclid', 'fbclid', 'mkclid'
         ];
 
-        return attributionParams.some(param =>
+        const hasAttribution = attributionParams.some(param =>
             newAttribution[param as keyof AttributionData] !== undefined
         );
+
+        console.log('Has new attribution data:', hasAttribution);
+
+        // If there's no referrer or landing page, ensure we at least have these basic attributes
+        if (!hasAttribution && Object.keys(newAttribution).length > 0) {
+            // Always save at least the landing page and timestamp on first visit
+            if (this.currentAttribution.landing_page === undefined) {
+                console.log('First visit, saving basic attribution data');
+                return true;
+            }
+        }
+
+        return hasAttribution;
     }
 
     /**
@@ -361,12 +413,30 @@ class UserJourneyTracker {
         if (typeof window === 'undefined' || !this.currentAttribution) return;
 
         try {
-            // Store attribution data in a cookie instead of localStorage
+            // Add debugging
+            console.log('Saving attribution data:', this.currentAttribution);
+
+            // Check if currentAttribution is empty
+            if (Object.keys(this.currentAttribution).length === 0) {
+                console.log('Attribution data is empty, not saving cookie');
+                return;
+            }
+
+            // Convert minutes to days and ensure it's at least 1 day
+            const expiryDays = Math.max(1, Math.floor((this.options.attributionExpiry as number) / (60 * 24)));
+
+            // Store attribution data in a cookie
             this.setCookie(
                 this.attributionCookieName,
                 JSON.stringify(this.currentAttribution),
-                Math.floor((this.options.attributionExpiry as number) / (60 * 24)) // Convert minutes to days
+                expiryDays
             );
+
+            // Verify cookie was set
+            setTimeout(() => {
+                const savedCookie = this.getCookie(this.attributionCookieName);
+                console.log('Verification - Attribution cookie set:', !!savedCookie);
+            }, 100);
         } catch (e) {
             console.error('Failed to save attribution data:', e);
         }
@@ -416,6 +486,7 @@ class UserJourneyTracker {
         // Check if we have new attribution data in the URL
         if (this.hasNewAttributionData(urlAttribution)) {
             // We have new attribution data, update and persist it
+            console.log('New attribution data found, updating current attribution');
             this.currentAttribution = urlAttribution;
             this.saveAttributionData();
             return urlAttribution;
@@ -423,6 +494,7 @@ class UserJourneyTracker {
 
         // No new attribution data, use the persisted attribution if available
         if (Object.keys(this.currentAttribution).length > 0) {
+            console.log('Using persisted attribution data');
             // Add the current page as landing_page
             return {
                 ...this.currentAttribution,
@@ -430,6 +502,7 @@ class UserJourneyTracker {
             };
         }
 
+        console.log('No attribution data found, using basic data');
         // No persisted attribution either, just return the basic data
         return urlAttribution;
     }
@@ -570,11 +643,11 @@ class UserJourneyTracker {
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
                 // Use credentials to include cookies in cross-origin requests
-                credentials: 'include'
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
