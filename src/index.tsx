@@ -619,8 +619,22 @@ class UserJourneyTracker {
                 data: {
                     uuid: this.uuid,
                     deriv_user_id: this.derivUserId || undefined,
-                    event_type: event, // e.g., "page view"
+                    //also should handle login or signup as well : add as input
+                    event_type: "pageview", // e.g., "page view"
                     // landing_page_url: this.landingPage || '', // Ensure this is defined in your context
+                    utm_source: this.currentAttribution.utm_source || undefined,
+                    utm_medium: this.currentAttribution.utm_medium || undefined,
+                    utm_campaign: this.currentAttribution.utm_campaign || undefined,
+                    utm_term: this.currentAttribution.utm_term || undefined,
+                    utm_ad_id: this.currentAttribution.utm_ad_id || undefined,
+                    utm_ad_group_id: this.currentAttribution.utm_ad_group_id || undefined,
+                    utm_campaign_id: this.currentAttribution.utm_campaign_id || undefined,
+                    gclid: this.currentAttribution.gclid || undefined,
+                    fbclid: this.currentAttribution.fbclid || undefined,
+                    mkclid: this.currentAttribution.mkclid || undefined,
+                    referrer: event.referrer || undefined,
+                    title: event.title || undefined,
+                    landing_page: event.attribution.landing_page || undefined,
                     is_logged_in: this.isLoggedIn || false, // Ensure this is a boolean
                 }
             };
