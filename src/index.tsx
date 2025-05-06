@@ -252,7 +252,6 @@ class UserJourneyTracker {
 
         // Ensure we have at least basic attribution data
         if (Object.keys(this.currentAttribution).length === 0) {
-            console.log('No attribution data found during init, creating basic attribution');
             this.currentAttribution = {
                 landing_page: window.location.pathname,
                 attribution_timestamp: Date.now()
@@ -368,9 +367,6 @@ class UserJourneyTracker {
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
 
-        // Add debugging
-        console.log('Parsed attribution data:', attribution);
-
         return attribution;
     }
 
@@ -391,13 +387,10 @@ class UserJourneyTracker {
             newAttribution[param as keyof AttributionData] !== undefined
         );
 
-        console.log('Has new attribution data:', hasAttribution);
-
         // If there's no referrer or landing page, ensure we at least have these basic attributes
         if (!hasAttribution && Object.keys(newAttribution).length > 0) {
             // Always save at least the landing page and timestamp on first visit
             if (this.currentAttribution.landing_page === undefined) {
-                console.log('First visit, saving basic attribution data');
                 return true;
             }
         }
@@ -413,12 +406,8 @@ class UserJourneyTracker {
         if (typeof window === 'undefined' || !this.currentAttribution) return;
 
         try {
-            // Add debugging
-            console.log('Saving attribution data:', this.currentAttribution);
-
             // Check if currentAttribution is empty
             if (Object.keys(this.currentAttribution).length === 0) {
-                console.log('Attribution data is empty, not saving cookie');
                 return;
             }
 
@@ -431,12 +420,6 @@ class UserJourneyTracker {
                 JSON.stringify(this.currentAttribution),
                 expiryDays
             );
-
-            // Verify cookie was set
-            setTimeout(() => {
-                const savedCookie = this.getCookie(this.attributionCookieName);
-                console.log('Verification - Attribution cookie set:', !!savedCookie);
-            }, 100);
         } catch (e) {
             console.error('Failed to save attribution data:', e);
         }
@@ -486,7 +469,6 @@ class UserJourneyTracker {
         // Check if we have new attribution data in the URL
         if (this.hasNewAttributionData(urlAttribution)) {
             // We have new attribution data, update and persist it
-            console.log('New attribution data found, updating current attribution');
             this.currentAttribution = urlAttribution;
             this.saveAttributionData();
             return urlAttribution;
@@ -494,7 +476,6 @@ class UserJourneyTracker {
 
         // No new attribution data, use the persisted attribution if available
         if (Object.keys(this.currentAttribution).length > 0) {
-            console.log('Using persisted attribution data');
             // Add the current page as landing_page
             return {
                 ...this.currentAttribution,
@@ -502,7 +483,6 @@ class UserJourneyTracker {
             };
         }
 
-        console.log('No attribution data found, using basic data');
         // No persisted attribution either, just return the basic data
         return urlAttribution;
     }
