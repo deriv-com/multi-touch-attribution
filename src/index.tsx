@@ -61,7 +61,7 @@ interface UserJourneyTrackerOptions {
  */
 class UserJourneyTracker {
     // API endpoint constant - hardcoded within the library
-    private readonly API_ENDPOINT: string = 'https://16rz8s.buildship.run/events';
+    private readonly API_ENDPOINT: string = 'https://8llxxz.buildship.run/user_events';
 
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
@@ -637,9 +637,9 @@ class UserJourneyTracker {
                     gclid: this.currentAttribution.gclid || undefined,
                     fbclid: this.currentAttribution.fbclid || undefined,
                     mkclid: this.currentAttribution.mkclid || undefined,
-                    referrer: event.referrer || undefined,
+                    referrer_url: event.referrer || undefined,
                     title: event.title || undefined,
-                    landing_page: event.attribution.landing_page || undefined,
+                    landing_page_url: event.attribution.landing_page || undefined,
                     is_logged_in: this.isLoggedIn || false, // Ensure this is a boolean
                 }
             };
