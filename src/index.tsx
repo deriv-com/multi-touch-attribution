@@ -653,9 +653,9 @@ class UserJourneyTracker {
                     gclid: this.currentAttribution.gclid || undefined,
                     fbclid: this.currentAttribution.fbclid || undefined,
                     mkclid: this.currentAttribution.mkclid || undefined,
-                    referrer: event.referrer || undefined,
+                    referrer_url: event.referrer || undefined,
                     title: event.title || undefined,
-                    landing_page: event.attribution.landing_page || undefined,
+                    landing_page_url: event.attribution.landing_page || undefined,
                     is_logged_in: this.isLoggedIn || false,
                     event_id: event.event_id
                 }
