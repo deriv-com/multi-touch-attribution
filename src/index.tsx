@@ -406,9 +406,7 @@ class UserJourneyTracker {
         if (typeof window === 'undefined' || !this.currentAttribution) return;
 
         try {
-            console.log('saveAttributionData called');
             if (Object.keys(this.currentAttribution).length === 0) {
-                console.log('currentAttribution is empty, returning');
                 return;
             }
 
@@ -436,14 +434,11 @@ class UserJourneyTracker {
 
             if (shouldUpdateAttribution) {
                 this.currentAttribution = urlAttribution;
-            } else {
-                console.log('Not updating attribution due to conditions');
             }
 
             const expiryDays = Math.max(1, Math.floor((this.options.attributionExpiry as number) / (60 * 24)));
 
             const cookieValue = JSON.stringify(this.currentAttribution);
-            console.log(`Setting cookie ${this.attributionCookieName} with value:`, cookieValue);
 
             this.setCookie(
                 this.attributionCookieName,
