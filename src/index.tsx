@@ -610,7 +610,7 @@ class UserJourneyTracker {
             // Find the event and send the updated version to backend with action 'update'
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent, 'update');
+                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
         }
     }
@@ -632,14 +632,14 @@ class UserJourneyTracker {
         this.saveEventsToLocalStorage();
 
         // send event to backend
-        this.sendEventToBackend(event);
+        this.sendEventToBackend(event,'pageview','update');
     }
 
     /**
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent,event_type:'pageview'|'signup'|'login'="pageview", action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent,event_type:'pageview'|'signup'|'login'='pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         try {
             // Prepare the payload
             const payload = {
@@ -785,7 +785,7 @@ class UserJourneyTracker {
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent);
+                this.sendEventToBackend(updatedEvent,'pageview','update');
             }
         }
 
@@ -828,7 +828,7 @@ class UserJourneyTracker {
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent);
+                this.sendEventToBackend(updatedEvent,'pageview','update');
             }
         }
 
