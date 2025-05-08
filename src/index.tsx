@@ -225,12 +225,35 @@ class UserJourneyTracker {
     public init(isLoggedIn?: boolean, userId?: string): void {
         if (this.isInitialized) return;
 
-        // Set login state if provided
-        if (isLoggedIn !== undefined) {
-            this.isLoggedIn = isLoggedIn;
+        // Check login state from cookies for static websites
+        if (typeof window !== 'undefined') {
+            const loginCookie = this.getCookie('client_information');
+            if (loginCookie) {
+                try {
+                    const clientInfo = JSON.parse(loginCookie);
+                    if (clientInfo && clientInfo.is_logged_in) {
+                        this.isLoggedIn = true;
+                        if (clientInfo.user_id) {
+                            this.derivUserId = clientInfo.user_id;
+                        }
+                    }
+                } catch (e) {
+                    // Invalid cookie JSON, ignore
+                }
+            } else {
+                // Only set login state from parameter if cookie not present
+                if (isLoggedIn !== undefined) {
+                    this.isLoggedIn = isLoggedIn;
+                }
+            }
+        } else {
+            // If window undefined, set login state from parameter if provided
+            if (isLoggedIn !== undefined) {
+                this.isLoggedIn = isLoggedIn;
+            }
         }
 
-        // Set user ID if provided
+        // Set user ID if provided (overrides cookie)
         if (userId) {
             this.derivUserId = userId;
         } else if (typeof window !== 'undefined') {
@@ -584,10 +607,10 @@ class UserJourneyTracker {
         if (previousState !== isLoggedIn && this.currentPageEventId) {
             this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
 
-            // Find the event and send the updated version to backend
+            // Find the event and send the updated version to backend with action 'update'
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent);
+                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
         }
     }
@@ -609,24 +632,22 @@ class UserJourneyTracker {
         this.saveEventsToLocalStorage();
 
         // send event to backend
-        this.sendEventToBackend(event);
+        this.sendEventToBackend(event,'pageview','update');
     }
 
     /**
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent,event_type:'pageview'|'signup'|'login'='pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         try {
             // Prepare the payload
             const payload = {
-                action: 'create',
+                action: action,
                 data: {
                     uuid: this.uuid,
                     deriv_user_id: this.derivUserId || undefined,
-                    //also should handle login or signup as well : add as input
-                    event_type: "pageview", // e.g., "page view"
-                    // landing_page_url: this.landingPage || '', // Ensure this is defined in your context
+                    event_type,
                     utm_source: this.currentAttribution.utm_source || undefined,
                     utm_medium: this.currentAttribution.utm_medium || undefined,
                     utm_campaign: this.currentAttribution.utm_campaign || undefined,
@@ -638,9 +659,8 @@ class UserJourneyTracker {
                     fbclid: this.currentAttribution.fbclid || undefined,
                     mkclid: this.currentAttribution.mkclid || undefined,
                     referrer_url: event.referrer || undefined,
-                    title: event.title || undefined,
                     landing_page_url: event.attribution.landing_page || undefined,
-                    is_logged_in: this.isLoggedIn || false, // Ensure this is a boolean
+                    is_logged_in: this.isLoggedIn || false,
                 }
             };
 
@@ -651,7 +671,6 @@ class UserJourneyTracker {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
-                // Use credentials to include cookies in cross-origin requests
                 credentials: 'same-origin'
             });
 
@@ -766,7 +785,7 @@ class UserJourneyTracker {
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent);
+                this.sendEventToBackend(updatedEvent,'pageview','update');
             }
         }
 
@@ -809,7 +828,7 @@ class UserJourneyTracker {
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent);
+                this.sendEventToBackend(updatedEvent,'pageview','update');
             }
         }
 
