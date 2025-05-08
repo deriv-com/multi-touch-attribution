@@ -227,7 +227,7 @@ class UserJourneyTracker {
 
         // Check login state from cookies for static websites
         if (typeof window !== 'undefined') {
-            const loginCookie = this.getCookie('client_information');
+            const loginCookie = this.getCookie('client_information'); // Adjust cookie name as needed
             if (loginCookie) {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
@@ -240,12 +240,17 @@ class UserJourneyTracker {
                 } catch (e) {
                     // Invalid cookie JSON, ignore
                 }
+            } else {
+                // Only set login state from parameter if cookie not present
+                if (isLoggedIn !== undefined) {
+                    this.isLoggedIn = isLoggedIn;
+                }
             }
-        }
-
-        // Set login state if provided (overrides cookie)
-        if (isLoggedIn !== undefined) {
-            this.isLoggedIn = isLoggedIn;
+        } else {
+            // If window undefined, set login state from parameter if provided
+            if (isLoggedIn !== undefined) {
+                this.isLoggedIn = isLoggedIn;
+            }
         }
 
         // Set user ID if provided (overrides cookie)
@@ -634,7 +639,7 @@ class UserJourneyTracker {
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent, action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent,event_type:'pageview'|'signup'|'login'="pageview", action: 'create' | 'update' = 'create'): Promise<void> {
         try {
             // Prepare the payload
             const payload = {
@@ -642,7 +647,7 @@ class UserJourneyTracker {
                 data: {
                     uuid: this.uuid,
                     deriv_user_id: this.derivUserId || undefined,
-                    event_type: "pageview",
+                    event_type,
                     utm_source: this.currentAttribution.utm_source || undefined,
                     utm_medium: this.currentAttribution.utm_medium || undefined,
                     utm_campaign: this.currentAttribution.utm_campaign || undefined,
@@ -654,10 +659,8 @@ class UserJourneyTracker {
                     fbclid: this.currentAttribution.fbclid || undefined,
                     mkclid: this.currentAttribution.mkclid || undefined,
                     referrer_url: event.referrer || undefined,
-                    title: event.title || undefined,
                     landing_page_url: event.attribution.landing_page || undefined,
                     is_logged_in: this.isLoggedIn || false,
-                    event_id: event.event_id
                 }
             };
 
