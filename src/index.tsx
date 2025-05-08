@@ -236,10 +236,8 @@ class UserJourneyTracker {
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
                         }
-                        console.log('Client info cookie found, setting isLoggedIn to true');
                     } else {
                         this.isLoggedIn = false;
-                        console.log('Client info cookie found but is_logged_in false, setting isLoggedIn to false');
                     }
                 } catch (e) {
                     console.error('Error parsing client_information cookie:', e);
@@ -248,14 +246,12 @@ class UserJourneyTracker {
                 // Only set login state from parameter if cookie not present
                 if (isLoggedIn !== undefined) {
                     this.isLoggedIn = isLoggedIn;
-                    console.log('No client info cookie, setting isLoggedIn from parameter:', isLoggedIn);
                 }
             }
         } else {
             // If window undefined, set login state from parameter if provided
             if (isLoggedIn !== undefined) {
                 this.isLoggedIn = isLoggedIn;
-                console.log('Window undefined, setting isLoggedIn from parameter:', isLoggedIn);
             }
         }
 
