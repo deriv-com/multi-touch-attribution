@@ -231,7 +231,7 @@ class UserJourneyTracker {
             if (loginCookie) {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
-                    if (clientInfo && clientInfo.is_logged_in) {
+                    if (clientInfo) {
                         this.isLoggedIn = true;
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
