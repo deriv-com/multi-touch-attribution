@@ -227,7 +227,7 @@ class UserJourneyTracker {
 
         // Check login state from cookies for static websites
         if (typeof window !== 'undefined') {
-            const loginCookie = this.getCookie('client_information'); // Adjust cookie name as needed
+            const loginCookie = this.getCookie('client_information');
             if (loginCookie) {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
