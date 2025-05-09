@@ -30,6 +30,8 @@ jobs:
               run: npm audit signatures
             - name: build
               run: npm run build
+            - name: Prepare
+              run: npm run prepare
             - name: Release
               if: success()
               env:
