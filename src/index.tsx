@@ -772,27 +772,9 @@ class UserJourneyTracker {
      * @param derivUserId The user ID assigned after login
      */
     public recordLogin(derivUserId: string): void {
-        this.isLoggedIn = true;
-        this.derivUserId = derivUserId;
-
-        // Store the user ID for future reference
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(`${this.storageKey}_user_id`, derivUserId);
-        }
-
-        // Update the current page event if it exists
-        if (this.currentPageEventId) {
-            this.updateEventLoginState(this.currentPageEventId, true);
-
-            // Find the event and send the updated version to backend
-            const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-            if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent,'pageview','update');
-            }
-        }
+        this.updateLoginState(true, derivUserId);
 
         // Reset events if configured to do so
-        // This implements the "Reset Cookies on Login" approach
         if (this.options.resetOnLogin) {
             this.clearEvents();
         }
@@ -806,36 +788,16 @@ class UserJourneyTracker {
      */
     public recordSignup(derivUserId: string): void {
         // Store the old UUID before potentially resetting
-        // This is important for cross-device attribution
         this.oldUuid = this.uuid;
 
-        this.isLoggedIn = true;
-        this.derivUserId = derivUserId;
+        this.updateLoginState(true, derivUserId);
 
-        // Store the user ID and old UUID for future reference
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(`${this.storageKey}_user_id`, derivUserId);
-
-            // Store the old UUID for reference
-            // This helps with "Handling Multi-Touch & Multi-Device Attribution"
-            if (this.oldUuid) {
-                localStorage.setItem(`${this.storageKey}_old_uuid`, this.oldUuid);
-            }
-        }
-
-        // Update the current page event if it exists
-        if (this.currentPageEventId) {
-            this.updateEventLoginState(this.currentPageEventId, true);
-
-            // Find the event and send the updated version to backend
-            const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-            if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent,'pageview','update');
-            }
+        // Store the old UUID for reference
+        if (typeof window !== 'undefined' && this.oldUuid) {
+            localStorage.setItem(`${this.storageKey}_old_uuid`, this.oldUuid);
         }
 
         // Reset events if configured to do so
-        // This implements the "Reset Cookies on Sign-Up" approach
         if (this.options.resetOnSignup) {
             this.clearEvents();
         }
