@@ -666,7 +666,8 @@ class UserJourneyTracker {
                 }
             };
 
-            // Send the event to the backend
+            // Commented out sending the event to the backend for now
+            /*
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',
                 headers: {
@@ -679,6 +680,7 @@ class UserJourneyTracker {
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
             }
+            */
         } catch (error) {
             console.error('Error sending event to backend:', error);
         }
