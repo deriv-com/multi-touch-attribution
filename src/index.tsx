@@ -642,6 +642,13 @@ class UserJourneyTracker {
      * @param event The event to send
      */
     private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+        let API_ENDPOINT;
+        if(action='create'){
+            API_ENDPOINT='https://p115t1.buildship.run/user_events'
+        }
+        else{
+              API_ENDPOINT='https://p115t1.buildship.run/identify'
+        }
         try {
             // Prepare the payload
             const payload = {
@@ -667,7 +674,7 @@ class UserJourneyTracker {
             };
 
             // Commented out sending the event to the backend for now
-            /*
+       
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',
                 headers: {
@@ -680,7 +687,7 @@ class UserJourneyTracker {
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
             }
-            */
+        
         } catch (error) {
             console.error('Error sending event to backend:', error);
         }
