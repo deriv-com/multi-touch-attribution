@@ -643,15 +643,10 @@ class UserJourneyTracker {
      */
     private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
+        let payload;
         if(action='create'){
             API_ENDPOINT='https://p115t1.buildship.run/user_events'
-        }
-        else{
-              API_ENDPOINT='https://p115t1.buildship.run/identify'
-        }
-        try {
-            // Prepare the payload
-            const payload = {
+            payload = {
                 action: action,
                 data: {
                     uuid: this.uuid,
@@ -671,10 +666,18 @@ class UserJourneyTracker {
                     landing_page_url: event.attribution.landing_page || undefined,
                     is_logged_in: this.isLoggedIn || false,
                 }
-            };
-
-            // Commented out sending the event to the backend for now
-       
+            }
+        }
+        else{
+              API_ENDPOINT='https://p115t1.buildship.run/identify'
+              payload={
+                uuid:this.uuid,
+                is_logged_in:this.isLoggedIn||false,
+                deriv_user_id:this.derivUserId || undefined
+              }
+        }
+        try {
+        
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',
                 headers: {
