@@ -38,7 +38,7 @@ interface PageViewEvent {
     uuid: string;             // Unique identifier for this browser/device
     is_loggedin: boolean;     // Whether the user was logged in during this visit
     event_id: string;        // Unique identifier for this event
-    deriv_user_id?:string
+    deriv_user_id?: string
 }
 
 /**
@@ -599,9 +599,9 @@ class UserJourneyTracker {
      * This implements the "Tracking Events for Every User Visit" approach
      */
     private trackCurrentPageView(): void {
-          const loginCookie = this.getCookie('client_information');
-      
-          const client_info=loginCookie&&JSON.parse(loginCookie)
+        const loginCookie = this.getCookie('client_information');
+
+        const client_info = loginCookie && JSON.parse(loginCookie)
         if (typeof window === 'undefined') return;
 
         // Skip if we're tracking the same URL again
@@ -625,7 +625,7 @@ class UserJourneyTracker {
             uuid: this.uuid,
             is_loggedin: this.isLoggedIn,
             event_id: eventId,
-            deriv_user_id:client_info?.user_id
+            deriv_user_id: client_info?.user_id
         };
 
         // Store the current page event ID for potential updates
@@ -665,77 +665,77 @@ class UserJourneyTracker {
             console.log('LocalStorage forcibly updated with logged_in:', isLoggedIn);
             console.log('LocalStorage forcibly updated with is_loggedin:', isLoggedIn);
 
-        // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
-        try {
-            const storedEventsStr = localStorage.getItem(this.storageKey);
-            if (storedEventsStr) {
-                const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
-                const updatedEvents = storedEvents.map((event, index) => {
-                    if (this.currentPageEventId) {
-                        if (event.event_id === this.currentPageEventId) {
+            // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
+            try {
+                const storedEventsStr = localStorage.getItem(this.storageKey);
+                if (storedEventsStr) {
+                    const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
+                    const updatedEvents = storedEvents.map((event, index) => {
+                        if (this.currentPageEventId) {
+                            if (event.event_id === this.currentPageEventId) {
+                                return {
+                                    ...event,
+                                    is_loggedin: isLoggedIn,
+                                    deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
+                                    attribution: {
+                                        ...event.attribution,
+
+                                    }
+                                };
+                            }
+                        } else if (index === storedEvents.length - 1) {
+                            // Fallback: update the most recent event if currentPageEventId is not set
                             return {
                                 ...event,
                                 is_loggedin: isLoggedIn,
-                                 deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
+                                deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
                                 attribution: {
                                     ...event.attribution,
-                                   
+
                                 }
                             };
                         }
-                    } else if (index === storedEvents.length - 1) {
-                        // Fallback: update the most recent event if currentPageEventId is not set
-                        return {
-                            ...event,
-                            is_loggedin: isLoggedIn,
-                              deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
-                            attribution: {
-                                ...event.attribution,
-                              
-                            }
-                        };
-                    }
-                    return event;
-                });
-                localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-                console.log('Updated is_loggedin and deriv_user_id for current page event in stored events in localStorage from updateLoginState parameter');
+                        return event;
+                    });
+                    localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
+                    console.log('Updated is_loggedin and deriv_user_id for current page event in stored events in localStorage from updateLoginState parameter');
+                }
+            } catch (e) {
+                console.error('Failed to update is_loggedin in stored events:', e);
             }
-        } catch (e) {
-            console.error('Failed to update is_loggedin in stored events:', e);
+
+            // Read back the value immediately to confirm
+            const readBack = localStorage.getItem(`${this.storageKey}_logged_in`);
+            const readBackIsLoggedIn = localStorage.getItem('is_loggedin');
+            console.log('LocalStorage read back logged_in:', readBack);
+            console.log('LocalStorage read back is_loggedin:', readBackIsLoggedIn);
+
+            // If logged_in is true, also update user_id in localStorage
+            if (isLoggedIn && userId) {
+                localStorage.setItem(`${this.storageKey}_user_id`, userId);
+                console.log('LocalStorage updated with userId due to logged_in true:', userId);
+            }
         }
 
-        // Read back the value immediately to confirm
-        const readBack = localStorage.getItem(`${this.storageKey}_logged_in`);
-        const readBackIsLoggedIn = localStorage.getItem('is_loggedin');
-        console.log('LocalStorage read back logged_in:', readBack);
-        console.log('LocalStorage read back is_loggedin:', readBackIsLoggedIn);
-
-        // If logged_in is true, also update user_id in localStorage
-        if (isLoggedIn && userId) {
-            localStorage.setItem(`${this.storageKey}_user_id`, userId);
-            console.log('LocalStorage updated with userId due to logged_in true:', userId);
+        if (userId) {
+            this.derivUserId = userId;
+            console.log('Updating derivUserId to:', userId);
         }
-    }
 
-    if (userId) {
-        this.derivUserId = userId;
-        console.log('Updating derivUserId to:', userId);
-    }
+        // Always update event login state and send update to backend if currentPageEventId exists
+        if (this.currentPageEventId) {
+            console.log('Updating event login state for eventId:', this.currentPageEventId);
+            this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
 
-    // Always update event login state and send update to backend if currentPageEventId exists
-    if (this.currentPageEventId) {
-        console.log('Updating event login state for eventId:', this.currentPageEventId);
-        this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
-
-        // Find the event and send the updated version to backend with action 'update'
-        const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-        if (updatedEvent) {
-            console.log('Sending updated event to backend:', updatedEvent);
-            this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+            // Find the event and send the updated version to backend with action 'update'
+            const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
+            if (updatedEvent) {
+                console.log('Sending updated event to backend:', updatedEvent);
+                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+            }
+        } else {
+            console.log('No current page event to update');
         }
-    } else {
-        console.log('No current page event to update');
-    }
     }
 
     /**
@@ -755,20 +755,19 @@ class UserJourneyTracker {
         this.saveEventsToLocalStorage();
 
         // send event to backend
-        this.sendEventToBackend(event, 'pageview', 'update');
+        this.sendEventToBackend(event, 'pageview', 'create');
     }
 
     /**
      * Send a single event to the backend API
      * @param event The event to send
      */
-private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
-        if(action='create'){
-            API_ENDPOINT='https://p115t1.buildship.run/user_events'
+        if (action === 'create') {
+            API_ENDPOINT = 'https://p115t1.buildship.run/user_events'
             payload = {
-                action: action,
                 data: {
                     uuid: this.uuid,
                     deriv_user_id: this.derivUserId || undefined,
@@ -789,16 +788,16 @@ private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 
                 }
             }
         }
-        else{
-              API_ENDPOINT='https://p115t1.buildship.run/identify'
-              payload={
-                uuid:this.uuid,
-                is_logged_in:this.isLoggedIn||false,
-                deriv_user_id:this.derivUserId || undefined
-              }
+        else {
+            API_ENDPOINT = 'https://p115t1.buildship.run/identify'
+            payload = {
+                uuid: this.uuid,
+                is_logged_in: this.isLoggedIn || false,
+                deriv_user_id: this.derivUserId || undefined
+            }
         }
         try {
-        
+
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: {
@@ -811,7 +810,7 @@ private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
             }
-        
+
         } catch (error) {
             console.error('Error sending event to backend:', error);
         }
@@ -920,7 +919,7 @@ private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+                // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
         }
 
@@ -963,7 +962,7 @@ private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 
             // Find the event and send the updated version to backend
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+                // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
         }
 
