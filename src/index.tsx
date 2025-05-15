@@ -37,7 +37,8 @@ interface PageViewEvent {
     attribution: AttributionData; // Attribution data for this visit
     uuid: string;             // Unique identifier for this browser/device
     is_loggedin: boolean;     // Whether the user was logged in during this visit
-    event_id: string;         // Unique identifier for this event
+    event_id: string;        // Unique identifier for this event
+    deriv_user_id?:string
 }
 
 /**
@@ -61,7 +62,7 @@ interface UserJourneyTrackerOptions {
  */
 class UserJourneyTracker {
     // API endpoint constant - hardcoded within the library
-    private readonly API_ENDPOINT: string = 'https://p115t1.buildship.run/user_events';
+    // private readonly API_ENDPOINT: string = 'https://p115t1.buildship.run/user_events';
 
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
@@ -101,6 +102,12 @@ class UserJourneyTracker {
 
         // Load persisted attribution data
         this.loadAttributionData();
+
+        // Synchronize internal isLoggedIn state with localStorage
+        if (typeof window !== 'undefined') {
+            const storedLoggedIn = localStorage.getItem(`${this.storageKey}_logged_in`);
+            this.isLoggedIn = storedLoggedIn === 'true';
+        }
     }
 
     /**
@@ -269,6 +276,56 @@ class UserJourneyTracker {
 
         // Load existing events from storage
         this.loadEvents();
+
+        // Sync is_loggedin in stored events with cookie client_information or localStorage is_loggedin if updateLoginState not called yet
+        if (typeof window !== 'undefined') {
+            try {
+                const storedEventsStr = localStorage.getItem(this.storageKey);
+                let isLoggedInValue = false;
+                let derivUserIdValue: string | null = null;
+
+                // Check client_information cookie for login state and user id
+                const clientInfoCookie = this.getCookie('client_information');
+                if (clientInfoCookie) {
+                    try {
+                        const clientInfo = JSON.parse(clientInfoCookie);
+                        if (clientInfo) {
+                            isLoggedInValue = true;
+                            if (clientInfo.user_id) {
+                                derivUserIdValue = clientInfo.user_id;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing client_information cookie:', e);
+                    }
+                } else {
+                    // Fallback to localStorage is_loggedin key
+                    const isLoggedInStr = localStorage.getItem('is_loggedin');
+                    isLoggedInValue = isLoggedInStr === 'true';
+                }
+
+                // Override derivUserIdValue if updateLoginState was called with true and userId
+                if (this.isLoggedIn && this.derivUserId) {
+                    derivUserIdValue = this.derivUserId;
+                }
+
+                if (storedEventsStr) {
+                    const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
+                    const updatedEvents = storedEvents.map(event => ({
+                        ...event,
+                        is_loggedin: isLoggedInValue,
+                        attribution: {
+                            ...event.attribution,
+                            deriv_user_id: isLoggedInValue ? derivUserIdValue : undefined
+                        }
+                    }));
+                    localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
+                    console.log('Synchronized is_loggedin and deriv_user_id in stored events on init');
+                }
+            } catch (e) {
+                console.error('Failed to synchronize is_loggedin in stored events on init:', e);
+            }
+        }
 
         // Set up auto-tracking if enabled
         if (this.options.autoTrack && typeof window !== 'undefined') {
@@ -542,6 +599,9 @@ class UserJourneyTracker {
      * This implements the "Tracking Events for Every User Visit" approach
      */
     private trackCurrentPageView(): void {
+          const loginCookie = this.getCookie('client_information');
+      
+          const client_info=loginCookie&&JSON.parse(loginCookie)
         if (typeof window === 'undefined') return;
 
         // Skip if we're tracking the same URL again
@@ -564,7 +624,8 @@ class UserJourneyTracker {
             attribution: attribution,
             uuid: this.uuid,
             is_loggedin: this.isLoggedIn,
-            event_id: eventId
+            event_id: eventId,
+            deriv_user_id:client_info?.user_id
         };
 
         // Store the current page event ID for potential updates
@@ -593,28 +654,88 @@ class UserJourneyTracker {
      * @param userId The user ID if logged in
      */
     public updateLoginState(isLoggedIn: boolean, userId?: string): void {
-        const previousState = this.isLoggedIn;
+        console.log('updateLoginState called with:', { isLoggedIn, userId, previousState: this.isLoggedIn });
+        // const previousState = this.isLoggedIn;
         this.isLoggedIn = isLoggedIn;
 
-        if (userId) {
-            this.derivUserId = userId;
+        // Force update logged_in value in localStorage every time
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(`${this.storageKey}_logged_in`, isLoggedIn ? 'true' : 'false');
+            localStorage.setItem('is_loggedin', isLoggedIn ? 'true' : 'false');
+            console.log('LocalStorage forcibly updated with logged_in:', isLoggedIn);
+            console.log('LocalStorage forcibly updated with is_loggedin:', isLoggedIn);
 
-            // Store the user ID for future reference
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(`${this.storageKey}_user_id`, userId);
+        // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
+        try {
+            const storedEventsStr = localStorage.getItem(this.storageKey);
+            if (storedEventsStr) {
+                const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
+                const updatedEvents = storedEvents.map((event, index) => {
+                    if (this.currentPageEventId) {
+                        if (event.event_id === this.currentPageEventId) {
+                            return {
+                                ...event,
+                                is_loggedin: isLoggedIn,
+                                 deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
+                                attribution: {
+                                    ...event.attribution,
+                                   
+                                }
+                            };
+                        }
+                    } else if (index === storedEvents.length - 1) {
+                        // Fallback: update the most recent event if currentPageEventId is not set
+                        return {
+                            ...event,
+                            is_loggedin: isLoggedIn,
+                              deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
+                            attribution: {
+                                ...event.attribution,
+                              
+                            }
+                        };
+                    }
+                    return event;
+                });
+                localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
+                console.log('Updated is_loggedin and deriv_user_id for current page event in stored events in localStorage from updateLoginState parameter');
             }
+        } catch (e) {
+            console.error('Failed to update is_loggedin in stored events:', e);
         }
 
-        // If login state changed and we have a current page event, update it
-        if (previousState !== isLoggedIn && this.currentPageEventId) {
-            this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
+        // Read back the value immediately to confirm
+        const readBack = localStorage.getItem(`${this.storageKey}_logged_in`);
+        const readBackIsLoggedIn = localStorage.getItem('is_loggedin');
+        console.log('LocalStorage read back logged_in:', readBack);
+        console.log('LocalStorage read back is_loggedin:', readBackIsLoggedIn);
 
-            // Find the event and send the updated version to backend with action 'update'
-            const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-            if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
-            }
+        // If logged_in is true, also update user_id in localStorage
+        if (isLoggedIn && userId) {
+            localStorage.setItem(`${this.storageKey}_user_id`, userId);
+            console.log('LocalStorage updated with userId due to logged_in true:', userId);
         }
+    }
+
+    if (userId) {
+        this.derivUserId = userId;
+        console.log('Updating derivUserId to:', userId);
+    }
+
+    // Always update event login state and send update to backend if currentPageEventId exists
+    if (this.currentPageEventId) {
+        console.log('Updating event login state for eventId:', this.currentPageEventId);
+        this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
+
+        // Find the event and send the updated version to backend with action 'update'
+        const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
+        if (updatedEvent) {
+            console.log('Sending updated event to backend:', updatedEvent);
+            this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+        }
+    } else {
+        console.log('No current page event to update');
+    }
     }
 
     /**
@@ -641,7 +762,7 @@ class UserJourneyTracker {
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
         if(action='create'){
@@ -678,7 +799,7 @@ class UserJourneyTracker {
         }
         try {
         
-            const response = await fetch(this.API_ENDPOINT, {
+            const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -874,3 +995,4 @@ class UserJourneyTracker {
 }
 
 export default UserJourneyTracker;
+
