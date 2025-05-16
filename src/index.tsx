@@ -765,8 +765,8 @@ class UserJourneyTracker {
     private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
-        if (action === 'create') {
-            API_ENDPOINT = 'https://p115t1.buildship.run/user_events'
+        if(action === 'create'){
+            API_ENDPOINT='https://p115t1.buildship.run/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -955,6 +955,9 @@ class UserJourneyTracker {
             }
         }
 
+        // Create and store a signup event with current attribution
+        this.createSignupEvent();
+
         // Update the current page event if it exists
         if (this.currentPageEventId) {
             this.updateEventLoginState(this.currentPageEventId, true);
@@ -971,6 +974,35 @@ class UserJourneyTracker {
         if (this.options.resetOnSignup) {
             this.clearEvents();
         }
+    }
+
+    /**
+     * Create and store a signup event with the current attribution data
+     */
+    private createSignupEvent(): void {
+        if (typeof window === 'undefined') return;
+
+        const eventId = this.generateUUID();
+
+        const signupEvent: PageViewEvent = {
+            url: window.location.href,
+            timestamp: Date.now(),
+            referrer: document.referrer || undefined,
+            title: document.title || undefined,
+            attribution: this.currentAttribution,
+            uuid: this.uuid,
+            is_loggedin: this.isLoggedIn,
+            event_id: eventId,
+            deriv_user_id: this.derivUserId || undefined
+        };
+
+        this.events.push(signupEvent);
+
+        // Save updated events to localStorage
+        this.saveEventsToLocalStorage();
+
+        // Optionally send the signup event to backend
+        this.sendEventToBackend(signupEvent, 'signup', 'create');
     }
 
     /**
@@ -994,4 +1026,3 @@ class UserJourneyTracker {
 }
 
 export default UserJourneyTracker;
-
