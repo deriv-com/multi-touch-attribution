@@ -38,7 +38,8 @@ interface PageViewEvent {
     uuid: string;             // Unique identifier for this browser/device
     is_loggedin: boolean;     // Whether the user was logged in during this visit
     event_id: string;        // Unique identifier for this event
-    deriv_user_id?: string
+    deriv_user_id?: string;
+    event_type?: 'pageview' | 'signup' | 'login'; // Optional event type
 }
 
 /**
@@ -824,6 +825,9 @@ class UserJourneyTracker {
         if (typeof window === 'undefined') return;
 
         try {
+            // Clean up events to keep only last page_view and recent signup event before saving
+            this.cleanupEventsForStorage();
+
             localStorage.setItem(this.storageKey, JSON.stringify(this.events));
         } catch (e) {
             console.error('Failed to save user events:', e);
@@ -841,6 +845,30 @@ class UserJourneyTracker {
                 }
             }
         }
+    }
+
+    /**
+     * Clean up events array to keep only the last page_view event and the most recent signup event
+     */
+    private cleanupEventsForStorage(): void {
+        // Filter to keep only the last pageview event and the most recent signup event
+        const lastPageViewEvent = [...this.events].reverse().find(event => event.event_type === 'pageview');
+        const lastSignupEvent = [...this.events].reverse().find(event => event.event_type === 'signup');
+
+        const newEvents: PageViewEvent[] = [];
+
+        if (lastPageViewEvent) {
+            newEvents.push(lastPageViewEvent);
+        }
+
+        if (lastSignupEvent) {
+            // Avoid duplicate if last signup event is same as last pageview event
+            if (!lastPageViewEvent || lastSignupEvent.event_id !== lastPageViewEvent.event_id) {
+                newEvents.push(lastSignupEvent);
+            }
+        }
+
+        this.events = newEvents;
     }
 
     /**
