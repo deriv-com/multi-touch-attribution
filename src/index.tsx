@@ -29,6 +29,8 @@ interface AttributionData {
  * Interface for storing page view events with attribution data
  * Each event represents a user visit with its associated attribution information
  */
+type EventType = 'pageview' | 'signup' | 'login';
+
 interface PageViewEvent {
     url: string;              // Full URL of the page visited
     timestamp: number;        // Unix timestamp of the visit
@@ -39,7 +41,7 @@ interface PageViewEvent {
     is_loggedin: boolean;     // Whether the user was logged in during this visit
     event_id: string;        // Unique identifier for this event
     deriv_user_id?: string;
-    event_type?: 'pageview' | 'signup' | 'login'; // Optional event type
+    event_type?: EventType; // Optional event type
 }
 
 /**
@@ -763,7 +765,7 @@ class UserJourneyTracker {
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent, event_type: EventType= 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
         if(action === 'create'){
@@ -826,7 +828,7 @@ class UserJourneyTracker {
 
         try {
             // Clean up events to keep only last page_view and recent signup event before saving
-            this.cleanupEventsForStorage();
+            this.cleanupStorage();
 
             localStorage.setItem(this.storageKey, JSON.stringify(this.events));
         } catch (e) {
@@ -850,22 +852,23 @@ class UserJourneyTracker {
     /**
      * Clean up events array to keep only the last page_view event and the most recent signup event
      */
-    private cleanupEventsForStorage(): void {
-        // Filter to keep only the last pageview event and the most recent signup event
-        const lastPageViewEvent = [...this.events].reverse().find(event => event.event_type === 'pageview');
+    private cleanupStorage(): void {
+        // Find the most recent signup event
         const lastSignupEvent = [...this.events].reverse().find(event => event.event_type === 'signup');
 
         const newEvents: PageViewEvent[] = [];
 
-        if (lastPageViewEvent) {
-            newEvents.push(lastPageViewEvent);
+        if (lastSignupEvent) {
+            newEvents.push(lastSignupEvent);
         }
 
-        if (lastSignupEvent) {
-            // Avoid duplicate if last signup event is same as last pageview event
-            if (!lastPageViewEvent || lastSignupEvent.event_id !== lastPageViewEvent.event_id) {
-                newEvents.push(lastSignupEvent);
-            }
+        // Find the last pageview event (excluding the signup event if it is a pageview)
+        const lastPageViewEvent = [...this.events].reverse().find(event =>
+            event.event_type === 'pageview' && event.event_id !== lastSignupEvent?.event_id
+        );
+
+        if (lastPageViewEvent) {
+            newEvents.push(lastPageViewEvent);
         }
 
         this.events = newEvents;
