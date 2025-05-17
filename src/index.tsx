@@ -29,6 +29,8 @@ interface AttributionData {
  * Interface for storing page view events with attribution data
  * Each event represents a user visit with its associated attribution information
  */
+type EventType = 'pageview' | 'signup' | 'login';
+
 interface PageViewEvent {
     url: string;              // Full URL of the page visited
     timestamp: number;        // Unix timestamp of the visit
@@ -38,7 +40,8 @@ interface PageViewEvent {
     uuid: string;             // Unique identifier for this browser/device
     is_loggedin: boolean;     // Whether the user was logged in during this visit
     event_id: string;        // Unique identifier for this event
-    deriv_user_id?: string
+    deriv_user_id?: string;
+    event_type?: EventType; // Optional event type
 }
 
 /**
@@ -61,9 +64,6 @@ interface UserJourneyTrackerOptions {
  * Implements the multi-touch attribution model described in the tracking plan
  */
 class UserJourneyTracker {
-    // API endpoint constant - hardcoded within the library
-    // private readonly API_ENDPOINT: string = 'https://p115t1.buildship.run/user_events';
-
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
     private storageKey: string = 'mt_event_history';  // Fixed storage key
@@ -320,7 +320,7 @@ class UserJourneyTracker {
                         }
                     }));
                     localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-                    console.log('Synchronized is_loggedin and deriv_user_id in stored events on init');
+                   
                 }
             } catch (e) {
                 console.error('Failed to synchronize is_loggedin in stored events on init:', e);
@@ -654,7 +654,6 @@ class UserJourneyTracker {
      * @param userId The user ID if logged in
      */
     public updateLoginState(isLoggedIn: boolean, userId?: string): void {
-        console.log('updateLoginState called with:', { isLoggedIn, userId, previousState: this.isLoggedIn });
         // const previousState = this.isLoggedIn;
         this.isLoggedIn = isLoggedIn;
 
@@ -662,9 +661,7 @@ class UserJourneyTracker {
         if (typeof window !== 'undefined') {
             localStorage.setItem(`${this.storageKey}_logged_in`, isLoggedIn ? 'true' : 'false');
             localStorage.setItem('is_loggedin', isLoggedIn ? 'true' : 'false');
-            console.log('LocalStorage forcibly updated with logged_in:', isLoggedIn);
-            console.log('LocalStorage forcibly updated with is_loggedin:', isLoggedIn);
-
+       
             // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
             try {
                 const storedEventsStr = localStorage.getItem(this.storageKey);
@@ -698,39 +695,31 @@ class UserJourneyTracker {
                         return event;
                     });
                     localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-                    console.log('Updated is_loggedin and deriv_user_id for current page event in stored events in localStorage from updateLoginState parameter');
+              
                 }
             } catch (e) {
                 console.error('Failed to update is_loggedin in stored events:', e);
             }
 
-            // Read back the value immediately to confirm
-            const readBack = localStorage.getItem(`${this.storageKey}_logged_in`);
-            const readBackIsLoggedIn = localStorage.getItem('is_loggedin');
-            console.log('LocalStorage read back logged_in:', readBack);
-            console.log('LocalStorage read back is_loggedin:', readBackIsLoggedIn);
-
             // If logged_in is true, also update user_id in localStorage
             if (isLoggedIn && userId) {
                 localStorage.setItem(`${this.storageKey}_user_id`, userId);
-                console.log('LocalStorage updated with userId due to logged_in true:', userId);
+            
             }
         }
 
         if (userId) {
             this.derivUserId = userId;
-            console.log('Updating derivUserId to:', userId);
+          
         }
 
         // Always update event login state and send update to backend if currentPageEventId exists
         if (this.currentPageEventId) {
-            console.log('Updating event login state for eventId:', this.currentPageEventId);
             this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
 
             // Find the event and send the updated version to backend with action 'update'
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
             if (updatedEvent) {
-                console.log('Sending updated event to backend:', updatedEvent);
                 this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
         } else {
@@ -762,11 +751,11 @@ class UserJourneyTracker {
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent, event_type: 'pageview' | 'signup' | 'login' = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent, event_type: EventType= 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
-        if (action === 'create') {
-            API_ENDPOINT = 'https://p115t1.buildship.run/user_events'
+        if(action === 'create'){
+            API_ENDPOINT='https://p115t1.buildship.run/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -826,8 +815,7 @@ class UserJourneyTracker {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(this.events));
         } catch (e) {
-            console.error('Failed to save user events:', e);
-
+       
             // If we hit storage limits, try to reduce the data size
             // This addresses the "Cookie Storage & Size Limits" concern
             if (e instanceof DOMException && (
@@ -841,6 +829,32 @@ class UserJourneyTracker {
                 }
             }
         }
+    }
+
+    /**
+     * Clean up events array to keep only the last page_view event and the most recent signup event
+     */
+    private cleanupStorage(): void {
+        // Find the most recent signup event
+        const lastSignupEvent = [...this.events].reverse().find(event => event.event_type === 'signup');
+
+        const newEvents: PageViewEvent[] = [];
+
+        if (lastSignupEvent) {
+            newEvents.push(lastSignupEvent);
+        }
+
+        // Find the last pageview event (excluding the signup event if it is a pageview)
+        const lastPageViewEvent = [...this.events].reverse().find(event =>
+        event.event_type === 'pageview' && event.event_id !== lastSignupEvent?.event_id
+        );
+
+        if (lastPageViewEvent) {
+            newEvents.push(lastPageViewEvent);
+        }
+
+        this.events = newEvents;
+        localStorage.setItem(this.storageKey, JSON.stringify(this.events));
     }
 
     /**
@@ -937,40 +951,48 @@ class UserJourneyTracker {
      * @param derivUserId The user ID assigned after signup
      */
     public recordSignup(derivUserId: string): void {
-        // Store the old UUID before potentially resetting
-        // This is important for cross-device attribution
-        this.oldUuid = this.uuid;
-
         this.isLoggedIn = true;
         this.derivUserId = derivUserId;
 
-        // Store the user ID and old UUID for future reference
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(`${this.storageKey}_user_id`, derivUserId);
+        // Create and store a signup event with current attribution
+     if (typeof window === 'undefined') return;
+        const eventId = this.generateUUID();
+        const signupEvent: PageViewEvent = {
+            url: window.location.href,
+            timestamp: Date.now(),
+            referrer: document.referrer || undefined,
+            title: document.title || undefined,
+            attribution: this.currentAttribution,
+            uuid: this.uuid,
+            is_loggedin: this.isLoggedIn,
+            event_id: eventId,
+            deriv_user_id: this.derivUserId || undefined
+        };
 
-            // Store the old UUID for reference
-            // This helps with "Handling Multi-Touch & Multi-Device Attribution"
-            if (this.oldUuid) {
-                localStorage.setItem(`${this.storageKey}_old_uuid`, this.oldUuid);
-            }
-        }
+        this.events.push(signupEvent);
+
+        // Save updated events to localStorage
+        this.saveEventsToLocalStorage();
+
+        // Optionally send the signup event to backend
+        this.sendEventToBackend(signupEvent, 'signup', 'create');
+        this.cleanupStorage()
 
         // Update the current page event if it exists
-        if (this.currentPageEventId) {
-            this.updateEventLoginState(this.currentPageEventId, true);
 
-            // Find the event and send the updated version to backend
-            const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-            if (updatedEvent) {
-                // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
-            }
-        }
+        // check after testing 
 
-        // Reset events if configured to do so
-        // This implements the "Reset Cookies on Sign-Up" approach
-        if (this.options.resetOnSignup) {
-            this.clearEvents();
-        }
+        // if (this.currentPageEventId) {
+        //     this.updateEventLoginState(this.currentPageEventId, true);
+
+        //     // Find the event and send the updated version to backend
+        //     const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
+        //     if (updatedEvent) {
+        //         // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+        //     }
+        // }
+
+       
     }
 
     /**
@@ -994,4 +1016,3 @@ class UserJourneyTracker {
 }
 
 export default UserJourneyTracker;
-
