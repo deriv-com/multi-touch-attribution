@@ -595,6 +595,35 @@ class UserJourneyTracker {
     }
 
     /**
+     * Check if the new event's attribution is the same as the last stored event's attribution
+     * @param newAttribution The attribution data of the new event
+     * @returns True if the event is duplicated (same attribution), false otherwise
+     */
+    private isEventDuplicated(newAttribution: AttributionData): boolean {
+        if (this.events.length === 0) return false;
+
+        const lastEvent = this.events[this.events.length - 1];
+        const lastAttribution = lastEvent.attribution;
+
+        // Keys to ignore during comparison (e.g., timestamps, landing page)
+        const ignoreKeys = new Set(['attribution_timestamp', 'landing_page']);
+
+        // Compare all keys in newAttribution and lastAttribution except ignored keys
+        const keys = new Set([
+            ...Object.keys(newAttribution).filter(key => !ignoreKeys.has(key)),
+            ...Object.keys(lastAttribution).filter(key => !ignoreKeys.has(key))
+        ]);
+
+        for (const key of keys) {
+            if (newAttribution[key as keyof AttributionData] !== lastAttribution[key as keyof AttributionData]) {
+                return false; // Different attribution found
+            }
+        }
+
+        return true; // All attribution fields are the same
+    }
+
+    /**
      * Track the current page view
      * This implements the "Tracking Events for Every User Visit" approach
      */
@@ -605,12 +634,17 @@ class UserJourneyTracker {
         if (typeof window === 'undefined') return;
 
         // Skip if we're tracking the same URL again
-        // TODO: we need to add another condition to say if page already visited and the attributions are the same
         if (this.lastTrackedUrl === window.location.href) return;
-        this.lastTrackedUrl = window.location.href;
 
         // Get attribution data for this page view
         const attribution = this.getAttributionForPageView();
+
+        // Check if the event is duplicated based on attribution
+        if (this.isEventDuplicated(attribution)) {
+            return; // Skip storing duplicated event
+        }
+
+        this.lastTrackedUrl = window.location.href;
 
         // Generate a unique ID for this event
         const eventId = this.generateUUID();
