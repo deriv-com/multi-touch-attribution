@@ -605,8 +605,14 @@ class UserJourneyTracker {
         const lastEvent = this.events[this.events.length - 1];
         const lastAttribution = lastEvent.attribution;
 
-        // Compare all keys in newAttribution and lastAttribution
-        const keys = new Set([...Object.keys(newAttribution), ...Object.keys(lastAttribution)]);
+        // Keys to ignore during comparison (e.g., timestamps, landing page)
+        const ignoreKeys = new Set(['attribution_timestamp', 'landing_page']);
+
+        // Compare all keys in newAttribution and lastAttribution except ignored keys
+        const keys = new Set([
+            ...Object.keys(newAttribution).filter(key => !ignoreKeys.has(key)),
+            ...Object.keys(lastAttribution).filter(key => !ignoreKeys.has(key))
+        ]);
 
         for (const key of keys) {
             if (newAttribution[key as keyof AttributionData] !== lastAttribution[key as keyof AttributionData]) {
