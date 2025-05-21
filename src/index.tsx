@@ -335,7 +335,7 @@ class UserJourneyTracker {
         // Ensure we have at least basic attribution data
         if (Object.keys(this.currentAttribution).length === 0) {
             this.currentAttribution = {
-                landing_page: window.location.pathname,
+                landing_page:  window.location.href,
                 attribution_timestamp: Date.now()
             };
 
@@ -444,7 +444,7 @@ class UserJourneyTracker {
         }
 
         // Add landing page
-        attribution.landing_page = window.location.pathname;
+        attribution.landing_page = window.location.href;
 
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
@@ -586,7 +586,7 @@ class UserJourneyTracker {
             // Add the current page as landing_page
             return {
                 ...this.currentAttribution,
-                landing_page: window.location.pathname
+                landing_page:  window.location.href
             };
         }
 
