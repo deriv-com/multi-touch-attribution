@@ -789,7 +789,7 @@ class UserJourneyTracker {
         let API_ENDPOINT;
         let payload;
         if(action === 'create'){
-            API_ENDPOINT='https://p115t1.buildship.run/user_events'
+            API_ENDPOINT='https://j78rrq.buildship.run/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -812,7 +812,7 @@ class UserJourneyTracker {
             }
         }
         else {
-            API_ENDPOINT = 'https://p115t1.buildship.run/identify'
+            API_ENDPOINT = 'https://j78rrq.buildship.run/identify'
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
