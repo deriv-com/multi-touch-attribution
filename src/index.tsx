@@ -320,7 +320,7 @@ class UserJourneyTracker {
                         }
                     }));
                     localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-                   
+
                 }
             } catch (e) {
                 console.error('Failed to synchronize is_loggedin in stored events on init:', e);
@@ -600,26 +600,65 @@ class UserJourneyTracker {
      * @returns True if the event is duplicated (same attribution), false otherwise
      */
     private isEventDuplicated(newAttribution: AttributionData): boolean {
-        if (this.events.length === 0) return false;
+        console.log('🔍 Checking for event duplication...');
+
+        if (this.events.length === 0) {
+            console.log('📝 No previous events found - not a duplicate');
+            return false;
+        }
 
         const lastEvent = this.events[this.events.length - 1];
         const lastAttribution = lastEvent.attribution;
 
+        console.log('🆕 New attribution:', JSON.stringify(newAttribution, null, 2));
+        console.log('📋 Last attribution:', JSON.stringify(lastAttribution, null, 2));
+
         // Keys to ignore during comparison (e.g., timestamps, landing page)
         const ignoreKeys = new Set(['attribution_timestamp', 'landing_page']);
 
-        // Compare all keys in newAttribution and lastAttribution except ignored keys
-        const keys = new Set([
-            ...Object.keys(newAttribution).filter(key => !ignoreKeys.has(key)),
-            ...Object.keys(lastAttribution).filter(key => !ignoreKeys.has(key))
-        ]);
+        // Get all attribution keys from both objects, excluding ignored keys
+        const newKeys = Object.keys(newAttribution).filter(key => !ignoreKeys.has(key) && newAttribution[key as keyof AttributionData] !== undefined);
+        const lastKeys = Object.keys(lastAttribution).filter(key => !ignoreKeys.has(key) && lastAttribution[key as keyof AttributionData] !== undefined);
 
-        for (const key of keys) {
-            if (newAttribution[key as keyof AttributionData] !== lastAttribution[key as keyof AttributionData]) {
-                return false; // Different attribution found
+        console.log('🔑 New meaningful keys:', newKeys);
+        console.log('🔑 Last meaningful keys:', lastKeys);
+
+        // If they have different numbers of meaningful keys, they're different
+        if (newKeys.length !== lastKeys.length) {
+            console.log('❌ Different number of meaningful keys - not a duplicate');
+            return false;
+        }
+
+        // If no meaningful attribution data in either, consider them the same
+        if (newKeys.length === 0 && lastKeys.length === 0) {
+            console.log('⚠️ Both events have no meaningful attribution data - considering duplicate');
+            return true;
+        }
+
+        // Compare all meaningful keys
+        const allKeys = new Set([...newKeys, ...lastKeys]);
+        console.log('🔍 Comparing keys:', Array.from(allKeys));
+
+        for (const key of allKeys) {
+            const newValue = newAttribution[key as keyof AttributionData];
+            const lastValue = lastAttribution[key as keyof AttributionData];
+
+            console.log(`🔍 Comparing ${key}: "${newValue}" vs "${lastValue}"`);
+
+            // If one has the key and the other doesn't (excluding undefined values)
+            if ((newValue !== undefined) !== (lastValue !== undefined)) {
+                console.log(`❌ Key "${key}" presence mismatch - not a duplicate`);
+                return false;
+            }
+
+            // If both have the key but values are different
+            if (newValue !== undefined && lastValue !== undefined && newValue !== lastValue) {
+                console.log(`❌ Key "${key}" value mismatch - not a duplicate`);
+                return false;
             }
         }
 
+        console.log('✅ All attribution fields match - this is a duplicate event');
         return true; // All attribution fields are the same
     }
 
@@ -641,6 +680,7 @@ class UserJourneyTracker {
 
         // Check if the event is duplicated based on attribution
         if (this.isEventDuplicated(attribution)) {
+            console.log("duplication detected")
             return; // Skip storing duplicated event
         }
 
@@ -695,7 +735,7 @@ class UserJourneyTracker {
         if (typeof window !== 'undefined') {
             localStorage.setItem(`${this.storageKey}_logged_in`, isLoggedIn ? 'true' : 'false');
             localStorage.setItem('is_loggedin', isLoggedIn ? 'true' : 'false');
-       
+
             // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
             try {
                 const storedEventsStr = localStorage.getItem(this.storageKey);
@@ -729,7 +769,7 @@ class UserJourneyTracker {
                         return event;
                     });
                     localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-              
+
                 }
             } catch (e) {
                 console.error('Failed to update is_loggedin in stored events:', e);
@@ -738,13 +778,13 @@ class UserJourneyTracker {
             // If logged_in is true, also update user_id in localStorage
             if (isLoggedIn && userId) {
                 localStorage.setItem(`${this.storageKey}_user_id`, userId);
-            
+
             }
         }
 
         if (userId) {
             this.derivUserId = userId;
-          
+
         }
 
         // Always update event login state and send update to backend if currentPageEventId exists
@@ -785,9 +825,10 @@ class UserJourneyTracker {
      * Send a single event to the backend API
      * @param event The event to send
      */
-    private async sendEventToBackend(event: PageViewEvent, event_type: EventType= 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+    private async sendEventToBackend(event: PageViewEvent, event_type: EventType = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
+
         if(action === 'create'){
             API_ENDPOINT='https://j78rrq.buildship.run/user_events'
             payload = {
@@ -849,7 +890,7 @@ class UserJourneyTracker {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(this.events));
         } catch (e) {
-       
+
             // If we hit storage limits, try to reduce the data size
             // This addresses the "Cookie Storage & Size Limits" concern
             if (e instanceof DOMException && (
@@ -880,7 +921,7 @@ class UserJourneyTracker {
 
         // Find the last pageview event (excluding the signup event if it is a pageview)
         const lastPageViewEvent = [...this.events].reverse().find(event =>
-        event.event_type === 'pageview' && event.event_id !== lastSignupEvent?.event_id
+            event.event_type === 'pageview' && event.event_id !== lastSignupEvent?.event_id
         );
 
         if (lastPageViewEvent) {
@@ -989,7 +1030,7 @@ class UserJourneyTracker {
         this.derivUserId = derivUserId;
 
         // Create and store a signup event with current attribution
-     if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined') return;
         const eventId = this.generateUUID();
         const signupEvent: PageViewEvent = {
             url: window.location.href,
@@ -1014,7 +1055,7 @@ class UserJourneyTracker {
 
         // Update the current page event if it exists
 
-        // check after testing 
+        // check after testing
 
         // if (this.currentPageEventId) {
         //     this.updateEventLoginState(this.currentPageEventId, true);
@@ -1026,7 +1067,7 @@ class UserJourneyTracker {
         //     }
         // }
 
-       
+
     }
 
     /**
