@@ -335,7 +335,7 @@ class UserJourneyTracker {
         // Ensure we have at least basic attribution data
         if (Object.keys(this.currentAttribution).length === 0) {
             this.currentAttribution = {
-                landing_page: window.location.pathname,
+                landing_page:  window.location.href,
                 attribution_timestamp: Date.now()
             };
 
@@ -444,7 +444,7 @@ class UserJourneyTracker {
         }
 
         // Add landing page
-        attribution.landing_page = window.location.pathname;
+        attribution.landing_page = window.location.href;
 
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
@@ -586,7 +586,7 @@ class UserJourneyTracker {
             // Add the current page as landing_page
             return {
                 ...this.currentAttribution,
-                landing_page: window.location.pathname
+                landing_page:  window.location.href
             };
         }
 
@@ -828,8 +828,9 @@ class UserJourneyTracker {
     private async sendEventToBackend(event: PageViewEvent, event_type: EventType = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
         let API_ENDPOINT;
         let payload;
-        if (action === 'create') {
-            API_ENDPOINT = 'https://p115t1.buildship.run/user_events'
+
+        if(action === 'create'){
+            API_ENDPOINT='https://j78rrq.buildship.run/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -852,7 +853,7 @@ class UserJourneyTracker {
             }
         }
         else {
-            API_ENDPOINT = 'https://p115t1.buildship.run/identify'
+            API_ENDPOINT = 'https://j78rrq.buildship.run/identify'
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
