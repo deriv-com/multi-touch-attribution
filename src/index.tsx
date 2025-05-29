@@ -224,7 +224,7 @@ class UserJourneyTracker {
      * @param isLoggedIn Optional parameter to set initial login state
      * @param userId Optional user ID if already logged in
      */
-    public init(isLoggedIn?: boolean, userId?: string): void {
+    public init(): void {
         if (this.isInitialized) return;
 
         // Check login state from cookies for static websites
@@ -236,6 +236,7 @@ class UserJourneyTracker {
                     if (clientInfo) {
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
+                            this.isLoggedIn = true;
                         }
                     } else {
                         this.isLoggedIn = false;
@@ -243,28 +244,6 @@ class UserJourneyTracker {
                 } catch (e) {
                     console.error('Error parsing client_information cookie:', e);
                 }
-            } else {
-                // Only set login state from parameter if cookie not present
-                if (isLoggedIn !== undefined) {
-                    this.isLoggedIn = isLoggedIn;
-                }
-            }
-        } else {
-            // If window undefined, set login state from parameter if provided
-            if (isLoggedIn !== undefined) {
-                this.isLoggedIn = isLoggedIn;
-            }
-        }
-
-        // Set user ID if provided (overrides cookie)
-        if (userId) {
-            this.derivUserId = userId;
-        } else if (typeof window !== 'undefined') {
-            // Try to load user ID from storage -> later this key name can be changed
-            const storedUserId = localStorage.getItem(`${this.storageKey}_user_id`);
-            if (storedUserId) {
-                this.derivUserId = storedUserId;
-                this.isLoggedIn = true;
             }
         }
 
@@ -672,6 +651,9 @@ class UserJourneyTracker {
      * @param userId The user ID if logged in
      */
     public updateLoginState(isLoggedIn: boolean, userId?: string): void {
+              if (userId) {
+            this.derivUserId = userId;
+        }
         // const previousState = this.isLoggedIn;
         this.isLoggedIn = isLoggedIn;
 
@@ -719,16 +701,8 @@ class UserJourneyTracker {
             } catch (e) {
                 console.error('Failed to update is_loggedin in stored events:', e);
             }
-
-            // If logged_in is true, also update user_id in localStorage
-            if (isLoggedIn && userId) {
-                localStorage.setItem(`${this.storageKey}_user_id`, userId);
-            }
         }
 
-        if (userId) {
-            this.derivUserId = userId;
-        }
 
         // Always update event login state and send update to backend if currentPageEventId exists
         if (this.currentPageEventId) {
