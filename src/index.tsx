@@ -103,12 +103,6 @@ class UserJourneyTracker {
         // Load persisted attribution data
         this.loadAttributionData();
 
-        // Synchronize internal isLoggedIn state with localStorage
-        if (typeof window !== 'undefined') {
-            // Remove synchronization with global login state keys to prevent overriding event login states
-            // const storedLoggedIn = localStorage.getItem(`${this.storageKey}_logged_in`);
-            // this.isLoggedIn = storedLoggedIn === 'true';
-        }
     }
 
     /**
@@ -240,8 +234,6 @@ class UserJourneyTracker {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
-                        // Remove setting isLoggedIn = true for all pageviews when client_information cookie is present
-                        // this.isLoggedIn = true;
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
                         }
@@ -278,57 +270,6 @@ class UserJourneyTracker {
 
         // Load existing events from storage
         this.loadEvents();
-
-        // Sync is_loggedin in stored events with cookie client_information or localStorage is_loggedin if updateLoginState not called yet
-        // Removed to prevent all previous page views from being marked as logged_in = true
-        // if (typeof window !== 'undefined') {
-        //     try {
-        //         const storedEventsStr = localStorage.getItem(this.storageKey);
-        //         let isLoggedInValue = false;
-        //         let derivUserIdValue: string | null = null;
-
-        //         // Check client_information cookie for login state and user id
-        //         const clientInfoCookie = this.getCookie('client_information');
-        //         if (clientInfoCookie) {
-        //             try {
-        //                 const clientInfo = JSON.parse(clientInfoCookie);
-        //                 if (clientInfo) {
-        //                     isLoggedInValue = true;
-        //                     if (clientInfo.user_id) {
-        //                         derivUserIdValue = clientInfo.user_id;
-        //                     }
-        //                 }
-        //             } catch (e) {
-        //                 console.error('Error parsing client_information cookie:', e);
-        //             }
-        //         } else {
-        //             // Fallback to localStorage is_loggedin key
-        //             const isLoggedInStr = localStorage.getItem('is_loggedin');
-        //             isLoggedInValue = isLoggedInStr === 'true';
-        //         }
-
-        //         // Override derivUserIdValue if updateLoginState was called with true and userId
-        //         if (this.isLoggedIn && this.derivUserId) {
-        //             derivUserIdValue = this.derivUserId;
-        //         }
-
-        //         if (storedEventsStr) {
-        //             const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
-        //             const updatedEvents = storedEvents.map(event => ({
-        //                 ...event,
-        //                 is_loggedin: isLoggedInValue,
-        //                 attribution: {
-        //                     ...event.attribution,
-        //                     deriv_user_id: isLoggedInValue ? derivUserIdValue : undefined
-        //                 }
-        //             }));
-        //             localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-
-        //         }
-        //     } catch (e) {
-        //         console.error('Failed to synchronize is_loggedin in stored events on init:', e);
-        //     }
-        // }
 
         // Set up auto-tracking if enabled
         if (this.options.autoTrack && typeof window !== 'undefined') {
@@ -736,10 +677,6 @@ class UserJourneyTracker {
 
         // Force update logged_in value in localStorage every time
         if (typeof window !== 'undefined') {
-            // Remove setting global login state keys to prevent overriding previous events
-            // localStorage.setItem(`${this.storageKey}_logged_in`, isLoggedIn ? 'true' : 'false');
-            // localStorage.setItem('is_loggedin', isLoggedIn ? 'true' : 'false');
-
             // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
             try {
                 const storedEventsStr = localStorage.getItem(this.storageKey);
