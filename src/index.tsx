@@ -103,11 +103,6 @@ class UserJourneyTracker {
         // Load persisted attribution data
         this.loadAttributionData();
 
-        // Synchronize internal isLoggedIn state with localStorage
-        if (typeof window !== 'undefined') {
-            const storedLoggedIn = localStorage.getItem(`${this.storageKey}_logged_in`);
-            this.isLoggedIn = storedLoggedIn === 'true';
-        }
     }
 
     /**
@@ -231,7 +226,7 @@ class UserJourneyTracker {
      * @param isLoggedIn Optional parameter to set initial login state
      * @param userId Optional user ID if already logged in
      */
-    public init(isLoggedIn?: boolean, userId?: string): void {
+    public init(): void {
         if (this.isInitialized) return;
 
         // Check login state from cookies for static websites
@@ -241,9 +236,9 @@ class UserJourneyTracker {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
-                        this.isLoggedIn = true;
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
+                            this.isLoggedIn = true;
                         }
                     } else {
                         this.isLoggedIn = false;
@@ -251,83 +246,11 @@ class UserJourneyTracker {
                 } catch (e) {
                     console.error('Error parsing client_information cookie:', e);
                 }
-            } else {
-                // Only set login state from parameter if cookie not present
-                if (isLoggedIn !== undefined) {
-                    this.isLoggedIn = isLoggedIn;
-                }
-            }
-        } else {
-            // If window undefined, set login state from parameter if provided
-            if (isLoggedIn !== undefined) {
-                this.isLoggedIn = isLoggedIn;
-            }
-        }
-
-        // Set user ID if provided (overrides cookie)
-        if (userId) {
-            this.derivUserId = userId;
-        } else if (typeof window !== 'undefined') {
-            // Try to load user ID from storage -> later this key name can be changed
-            const storedUserId = localStorage.getItem(`${this.storageKey}_user_id`);
-            if (storedUserId) {
-                this.derivUserId = storedUserId;
-                this.isLoggedIn = true;
             }
         }
 
         // Load existing events from storage
         this.loadEvents();
-
-        // Sync is_loggedin in stored events with cookie client_information or localStorage is_loggedin if updateLoginState not called yet
-        if (typeof window !== 'undefined') {
-            try {
-                const storedEventsStr = localStorage.getItem(this.storageKey);
-                let isLoggedInValue = false;
-                let derivUserIdValue: string | null = null;
-
-                // Check client_information cookie for login state and user id
-                const clientInfoCookie = this.getCookie('client_information');
-                if (clientInfoCookie) {
-                    try {
-                        const clientInfo = JSON.parse(clientInfoCookie);
-                        if (clientInfo) {
-                            isLoggedInValue = true;
-                            if (clientInfo.user_id) {
-                                derivUserIdValue = clientInfo.user_id;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error parsing client_information cookie:', e);
-                    }
-                } else {
-                    // Fallback to localStorage is_loggedin key
-                    const isLoggedInStr = localStorage.getItem('is_loggedin');
-                    isLoggedInValue = isLoggedInStr === 'true';
-                }
-
-                // Override derivUserIdValue if updateLoginState was called with true and userId
-                if (this.isLoggedIn && this.derivUserId) {
-                    derivUserIdValue = this.derivUserId;
-                }
-
-                if (storedEventsStr) {
-                    const storedEvents: PageViewEvent[] = JSON.parse(storedEventsStr);
-                    const updatedEvents = storedEvents.map(event => ({
-                        ...event,
-                        is_loggedin: isLoggedInValue,
-                        attribution: {
-                            ...event.attribution,
-                            deriv_user_id: isLoggedInValue ? derivUserIdValue : undefined
-                        }
-                    }));
-                    localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-
-                }
-            } catch (e) {
-                console.error('Failed to synchronize is_loggedin in stored events on init:', e);
-            }
-        }
 
         // Set up auto-tracking if enabled
         if (this.options.autoTrack && typeof window !== 'undefined') {
@@ -730,14 +653,14 @@ class UserJourneyTracker {
      * @param userId The user ID if logged in
      */
     public updateLoginState(isLoggedIn: boolean, userId?: string): void {
+              if (userId) {
+            this.derivUserId = userId;
+        }
         // const previousState = this.isLoggedIn;
         this.isLoggedIn = isLoggedIn;
 
         // Force update logged_in value in localStorage every time
         if (typeof window !== 'undefined') {
-            localStorage.setItem(`${this.storageKey}_logged_in`, isLoggedIn ? 'true' : 'false');
-            localStorage.setItem('is_loggedin', isLoggedIn ? 'true' : 'false');
-
             // Update is_loggedin and deriv_user_id inside stored events in mt_event_history directly from isLoggedIn parameter and userId
             try {
                 const storedEventsStr = localStorage.getItem(this.storageKey);
@@ -752,42 +675,36 @@ class UserJourneyTracker {
                                     deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
                                     attribution: {
                                         ...event.attribution,
-
                                     }
                                 };
+                            } else {
+                                return event;
                             }
                         } else if (index === storedEvents.length - 1) {
                             // Fallback: update the most recent event if currentPageEventId is not set
-                            return {
-                                ...event,
-                                is_loggedin: isLoggedIn,
-                                deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
-                                attribution: {
-                                    ...event.attribution,
-
-                                }
-                            };
+                            if (index === storedEvents.length - 1) {
+                                return {
+                                    ...event,
+                                    is_loggedin: isLoggedIn,
+                                    deriv_user_id: isLoggedIn ? userId || this.derivUserId : undefined,
+                                    attribution: {
+                                        ...event.attribution,
+                                    }
+                                };
+                            } else {
+                                return event;
+                            }
+                        } else {
+                            return event;
                         }
-                        return event;
                     });
                     localStorage.setItem(this.storageKey, JSON.stringify(updatedEvents));
-
                 }
             } catch (e) {
                 console.error('Failed to update is_loggedin in stored events:', e);
             }
-
-            // If logged_in is true, also update user_id in localStorage
-            if (isLoggedIn && userId) {
-                localStorage.setItem(`${this.storageKey}_user_id`, userId);
-
-            }
         }
 
-        if (userId) {
-            this.derivUserId = userId;
-
-        }
 
         // Always update event login state and send update to backend if currentPageEventId exists
         if (this.currentPageEventId) {
