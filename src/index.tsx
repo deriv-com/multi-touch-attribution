@@ -143,8 +143,10 @@ class UserJourneyTracker {
      * @returns A randomly generated UUID v4 string
      */
     private generateUUID(): string {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = Math.random() * 16 | 0;
+        const randomValues = new Uint8Array(16);
+        window.crypto.getRandomValues(randomValues);
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c, i) {
+            const r = randomValues[i % randomValues.length] & 0xf;
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
