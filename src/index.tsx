@@ -712,6 +712,7 @@ class UserJourneyTracker {
 
             // Find the event and send the updated version to backend with action 'update'
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
+        console.log('updatedEvent',updatedEvent)
             if (updatedEvent) {
                 this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
@@ -745,6 +746,7 @@ class UserJourneyTracker {
      * @param event The event to send
      */
     private async sendEventToBackend(event: PageViewEvent, event_type: EventType = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
+        console.log('sendEventToBackend called with event_type:', event_type, 'action:', action, 'event:', event);
         let API_ENDPOINT;
         let payload;
 
@@ -780,6 +782,7 @@ class UserJourneyTracker {
             }
         }
         try {
+            console.log('Sending fetch request to:', API_ENDPOINT, 'with payload:', payload);
 
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
@@ -792,6 +795,8 @@ class UserJourneyTracker {
 
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
+            } else {
+                console.log('Event sent successfully:', response.status);
             }
 
         } catch (error) {
