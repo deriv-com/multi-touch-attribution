@@ -64,6 +64,7 @@ interface UserJourneyTrackerOptions {
  * Implements the multi-touch attribution model described in the tracking plan
  */
 class UserJourneyTracker {
+    private shouldClearStorageCookieName: string = 'mt_shouldClearStorage';
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
     private storageKey: string = 'mt_event_history';  // Fixed storage key
@@ -77,6 +78,7 @@ class UserJourneyTracker {
     private lastTrackedUrl: string = '';   // Last URL that was tracked
     private currentPageEventId: string | null = null; // ID of the current page event
     private currentAttribution: AttributionData = {}; // Current attribution data to persist
+    private currentAppName: 'app_deriv_ae' | 'deriv_ae' | null = null; // Current app name passed during init
 
     /**
      * Constructor - sets up the tracker with default or custom options
@@ -226,7 +228,8 @@ class UserJourneyTracker {
      * @param isLoggedIn Optional parameter to set initial login state
      * @param userId Optional user ID if already logged in
      */
-    public init(): void {
+
+    public init(app_name?: 'app_deriv_ae' | 'deriv_ae'): void {
         if (this.isInitialized) return;
 
         // Check login state from cookies for static websites
@@ -251,6 +254,20 @@ class UserJourneyTracker {
 
         // Load existing events from storage
         this.loadEvents();
+
+        // Check shouldClearStorage cookie and cleanup if needed for the specified app
+        if (app_name) {
+            const shouldClearStorageStr = this.getCookie(this.shouldClearStorageCookieName);
+            if (shouldClearStorageStr) {
+                try {
+                    if (shouldClearStorageStr.includes(app_name) && shouldClearStorageStr.includes('true')) {
+                        this.cleanupStorage();
+                    }
+                } catch (e) {
+                    console.error('Error checking shouldClearStorage cookie:', e);
+                }
+            }
+        }
 
         // Set up auto-tracking if enabled
         if (this.options.autoTrack && typeof window !== 'undefined') {
@@ -854,6 +871,17 @@ class UserJourneyTracker {
 
         this.events = newEvents;
         localStorage.setItem(this.storageKey, JSON.stringify(this.events));
+
+        // Reset the shouldClearStorage cookie flags to false after cleanup
+        const shouldClearStorageStr = this.getCookie(this.shouldClearStorageCookieName);
+        if (shouldClearStorageStr) {
+            try {
+                const shouldClearStorage = JSON.parse(shouldClearStorageStr);
+                this.setShouldClearStorage({ app_deriv_ae: false, deriv_ae: false });
+            } catch (e) {
+                console.error('Error resetting shouldClearStorage cookie:', e);
+            }
+        }
     }
 
     /**
@@ -944,6 +972,17 @@ class UserJourneyTracker {
     }
 
     /**
+     * Set the shouldClearStorage cookie data
+     * @param data Object with keys app_deriv_ae and deriv_ae
+     */
+    private setShouldClearStorage(data: { app_deriv_ae: boolean; deriv_ae: boolean }): void {
+        if (typeof window === 'undefined') return;
+        const cookieValue = JSON.stringify(data);
+        const days = 365; // 1 year expiry
+        this.setCookie(this.shouldClearStorageCookieName, cookieValue, days);
+    }
+
+    /**
      * Record user signup
      * This associates the tracking data with a user ID, stores the old UUID,
      * and optionally resets tracking
@@ -953,8 +992,20 @@ class UserJourneyTracker {
         this.isLoggedIn = true;
         this.derivUserId = derivUserId;
 
-        // Create and store a signup event with current attribution
         if (typeof window === 'undefined') return;
+
+        // We will set the shouldClearStorage flag for the app_name during signup
+        if (!this.currentAppName) {
+            console.warn('App name not set. Please pass app_name during init.');
+        } else {
+            if (this.currentAppName === 'app_deriv_ae') {
+                this.setShouldClearStorage({ app_deriv_ae: true, deriv_ae: false });
+            } else if (this.currentAppName === 'deriv_ae') {
+                this.setShouldClearStorage({ app_deriv_ae: false, deriv_ae: true });
+            }
+        }
+
+        // Create and store a signup event with current attribution
         const eventId = this.generateUUID();
         const signupEvent: PageViewEvent = {
             url: window.location.href,
@@ -975,7 +1026,7 @@ class UserJourneyTracker {
 
         // Optionally send the signup event to backend
         this.sendEventToBackend(signupEvent, 'signup', 'create');
-        this.cleanupStorage()
+        this.cleanupStorage();
 
         // Update the current page event if it exists
 
@@ -990,8 +1041,6 @@ class UserJourneyTracker {
         //         // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
         //     }
         // }
-
-
     }
 
     /**
