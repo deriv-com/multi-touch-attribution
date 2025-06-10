@@ -77,7 +77,7 @@ class UserJourneyTracker {
     private lastTrackedUrl: string = '';   // Last URL that was tracked
     private currentPageEventId: string | null = null; // ID of the current page event
     private currentAttribution: AttributionData = {}; // Current attribution data to persist
-
+    private hasSentSignupEvent: boolean = false; // Flag to indicate if signup event was sent
     /**
      * Constructor - sets up the tracker with default or custom options
      * @param options Configuration options for the tracker
@@ -228,7 +228,7 @@ class UserJourneyTracker {
      */
     public init(): void {
         if (this.isInitialized) return;
-
+    console.log('new init method is called for staging.deriv.ae also')
         // Check login state from cookies for static websites
         if (typeof window !== 'undefined') {
             const loginCookie = this.getCookie('client_information');
@@ -236,6 +236,12 @@ class UserJourneyTracker {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
+            if (window.location.hostname.endsWith('.deriv.ae')) {
+                console.log( 'Cleaning up events for staging.deriv.ae...');
+                // For staging.deriv.ae, if client_information cookie exists, cleanup events to keep only latest attribution
+                this.loadEvents(); // Ensure events are loaded before cleanup
+                this.cleanupEventsKeepLastAttribution();
+            }
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
                             this.isLoggedIn = true;
@@ -592,6 +598,11 @@ class UserJourneyTracker {
      * This implements the "Tracking Events for Every User Visit" approach
      */
     private trackCurrentPageView(): void {
+        if (this.hasSentSignupEvent) {
+            console.log("Signup event already sent, skipping pageview event.");
+            return; // Do not send pageview event after signup
+        }
+
         const loginCookie = this.getCookie('client_information');
 
         const client_info = loginCookie && JSON.parse(loginCookie)
@@ -829,30 +840,19 @@ class UserJourneyTracker {
             }
         }
     }
+    private cleanupEventsKeepLastAttribution(): void {
+        if (this.events.length === 0) return;
 
-    /**
-     * Clean up events array to keep only the last page_view event and the most recent signup event
-     */
-    private cleanupStorage(): void {
-        // Find the most recent signup event
-        const lastSignupEvent = [...this.events].reverse().find(event => event.event_type === 'signup');
+        // Find the last event (signup or pageview)
+        const lastEvent = this.events[this.events.length - 1];
 
-        const newEvents: PageViewEvent[] = [];
+        // Filter events to keep only the last event
+        this.events = [lastEvent];
 
-        if (lastSignupEvent) {
-            newEvents.push(lastSignupEvent);
-        }
+        // Update the attribution of the last event to the current attribution
+        this.events[0].attribution = this.currentAttribution;
 
-        // Find the last pageview event (excluding the signup event if it is a pageview)
-        const lastPageViewEvent = [...this.events].reverse().find(event =>
-            event.event_type === 'pageview' && event.event_id !== lastSignupEvent?.event_id
-        );
-
-        if (lastPageViewEvent) {
-            newEvents.push(lastPageViewEvent);
-        }
-
-        this.events = newEvents;
+        // Save to localStorage
         localStorage.setItem(this.storageKey, JSON.stringify(this.events));
     }
 
@@ -916,7 +916,7 @@ class UserJourneyTracker {
      * This associates the tracking data with a user ID and optionally resets tracking
      * @param derivUserId The user ID assigned after login
      */
-    public recordLogin(derivUserId: string): void {
+    public recordLogin(derivUserId: string): void { 
         this.isLoggedIn = true;
         this.derivUserId = derivUserId;
 
@@ -970,31 +970,25 @@ class UserJourneyTracker {
 
         this.events.push(signupEvent);
 
+        // For .deriv.ae domain, keep only the last event with latest attribution
+        if (typeof window !== 'undefined') {
+            this.cleanupEventsKeepLastAttribution();
+        }
+
         // Save updated events to localStorage
         this.saveEventsToLocalStorage();
 
         // Optionally send the signup event to backend
         this.sendEventToBackend(signupEvent, 'signup', 'create');
-        this.cleanupStorage()
 
-        // Update the current page event if it exists
-
-        // check after testing
-
-        // if (this.currentPageEventId) {
-        //     this.updateEventLoginState(this.currentPageEventId, true);
-
-        //     // Find the event and send the updated version to backend
-        //     const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-        //     if (updatedEvent) {
-        //         // this.sendEventToBackend(updatedEvent, 'pageview', 'update');
-        //     }
-        // }
-
-
+        // Set flag to indicate signup event was sent
+        this.hasSentSignupEvent = true;
     }
 
     /**
+     * Cleanup events to keep only the last event with the latest attribution
+     * Deletes all other pageview events except the last one
+     *    /**
      * Export journey data for sending to server
      * This provides all the data needed for backend storage and analysis
      * @returns An object containing UUID, user ID, old UUID, and all tracked events
@@ -1012,6 +1006,7 @@ class UserJourneyTracker {
             events: this.getEvents()               // All tracked events
         };
     }
+
 }
 
 export default UserJourneyTracker;
