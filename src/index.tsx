@@ -985,11 +985,7 @@ class UserJourneyTracker {
         this.hasSentSignupEvent = true;
     }
 
-    /**
-     * Cleanup events to keep only the last event with the latest attribution
-     * Deletes all other pageview events except the last one
-     *    /**
-     * Export journey data for sending to server
+     /* Export journey data for sending to server
      * This provides all the data needed for backend storage and analysis
      * @returns An object containing UUID, user ID, old UUID, and all tracked events
      */
