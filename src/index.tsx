@@ -762,7 +762,7 @@ class UserJourneyTracker {
         let payload;
 
         if(action === 'create'){
-            API_ENDPOINT='https://j78rrq.buildship.run/user_events'
+            API_ENDPOINT='https://deriv-app.xano.io/api:gT6G3E2b/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -785,7 +785,7 @@ class UserJourneyTracker {
             }
         }
         else {
-            API_ENDPOINT = 'https://j78rrq.buildship.run/identify'
+            API_ENDPOINT = 'https://deriv-app.xano.io/api:gT6G3E2b/identify'
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
