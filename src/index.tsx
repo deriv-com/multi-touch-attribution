@@ -228,7 +228,6 @@ class UserJourneyTracker {
      */
     public init(): void {
         if (this.isInitialized) return;
-    console.log('new init method is called for staging.deriv.ae also')
         // Check login state from cookies for static websites
         if (typeof window !== 'undefined') {
             const loginCookie = this.getCookie('client_information');
@@ -237,7 +236,7 @@ class UserJourneyTracker {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
             if (window.location.hostname.endsWith('.deriv.ae')) {
-                console.log( 'Cleaning up events for staging.deriv.ae...');
+           
                 // For staging.deriv.ae, if client_information cookie exists, cleanup events to keep only latest attribution
                 this.loadEvents(); // Ensure events are loaded before cleanup
                 this.cleanupEventsKeepLastAttribution();
@@ -531,19 +530,13 @@ class UserJourneyTracker {
      * @returns True if the event is duplicated (same attribution), false otherwise
      */
     private isEventDuplicated(newAttribution: AttributionData): boolean {
-        console.log('🔍 Checking for event duplication...');
 
         if (this.events.length === 0) {
-            console.log('📝 No previous events found - not a duplicate');
             return false;
         }
 
         const lastEvent = this.events[this.events.length - 1];
         const lastAttribution = lastEvent.attribution;
-
-        console.log('🆕 New attribution:', JSON.stringify(newAttribution, null, 2));
-        console.log('📋 Last attribution:', JSON.stringify(lastAttribution, null, 2));
-
         // Keys to ignore during comparison (e.g., timestamps, landing page)
         const ignoreKeys = new Set(['attribution_timestamp', 'landing_page']);
 
@@ -551,45 +544,34 @@ class UserJourneyTracker {
         const newKeys = Object.keys(newAttribution).filter(key => !ignoreKeys.has(key) && newAttribution[key as keyof AttributionData] !== undefined);
         const lastKeys = Object.keys(lastAttribution).filter(key => !ignoreKeys.has(key) && lastAttribution[key as keyof AttributionData] !== undefined);
 
-        console.log('🔑 New meaningful keys:', newKeys);
-        console.log('🔑 Last meaningful keys:', lastKeys);
-
         // If they have different numbers of meaningful keys, they're different
         if (newKeys.length !== lastKeys.length) {
-            console.log('❌ Different number of meaningful keys - not a duplicate');
             return false;
         }
 
         // If no meaningful attribution data in either, consider them the same
         if (newKeys.length === 0 && lastKeys.length === 0) {
-            console.log('⚠️ Both events have no meaningful attribution data - considering duplicate');
             return true;
         }
 
         // Compare all meaningful keys
         const allKeys = new Set([...newKeys, ...lastKeys]);
-        console.log('🔍 Comparing keys:', Array.from(allKeys));
-
+      
         for (const key of allKeys) {
             const newValue = newAttribution[key as keyof AttributionData];
             const lastValue = lastAttribution[key as keyof AttributionData];
 
-            console.log(`🔍 Comparing ${key}: "${newValue}" vs "${lastValue}"`);
-
             // If one has the key and the other doesn't (excluding undefined values)
             if ((newValue !== undefined) !== (lastValue !== undefined)) {
-                console.log(`❌ Key "${key}" presence mismatch - not a duplicate`);
                 return false;
             }
 
             // If both have the key but values are different
             if (newValue !== undefined && lastValue !== undefined && newValue !== lastValue) {
-                console.log(`❌ Key "${key}" value mismatch - not a duplicate`);
                 return false;
             }
         }
 
-        console.log('✅ All attribution fields match - this is a duplicate event');
         return true; // All attribution fields are the same
     }
 
@@ -599,7 +581,6 @@ class UserJourneyTracker {
      */
     private trackCurrentPageView(): void {
         if (this.hasSentSignupEvent) {
-            console.log("Signup event already sent, skipping pageview event.");
             return; // Do not send pageview event after signup
         }
 
@@ -616,7 +597,6 @@ class UserJourneyTracker {
 
         // Check if the event is duplicated based on attribution
         if (this.isEventDuplicated(attribution)) {
-            console.log("duplication detected")
             return; // Skip storing duplicated event
         }
 
@@ -723,13 +703,12 @@ class UserJourneyTracker {
 
             // Find the event and send the updated version to backend with action 'update'
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
-        console.log('updatedEvent',updatedEvent)
+
             if (updatedEvent) {
                 this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
-        } else {
-            console.log('No current page event to update');
-        }
+              } 
+        
     }
 
     /**
@@ -757,7 +736,6 @@ class UserJourneyTracker {
      * @param event The event to send
      */
     private async sendEventToBackend(event: PageViewEvent, event_type: EventType = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
-        console.log('sendEventToBackend called with event_type:', event_type, 'action:', action, 'event:', event);
         let API_ENDPOINT;
         let payload;
 
@@ -793,8 +771,7 @@ class UserJourneyTracker {
             }
         }
         try {
-            console.log('Sending fetch request to:', API_ENDPOINT, 'with payload:', payload);
-
+           
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: {
@@ -806,9 +783,8 @@ class UserJourneyTracker {
 
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
-            } else {
-                console.log('Event sent successfully:', response.status);
-            }
+            } 
+        
 
         } catch (error) {
             console.error('Error sending event to backend:', error);
