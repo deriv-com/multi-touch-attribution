@@ -268,7 +268,7 @@ class UserJourneyTracker {
 
         // Get the current UUID from analytics cookie
         const analyticsUuid = this.getCookie(this.cookieName);
-        
+
         if (analyticsUuid && analyticsUuid !== this.uuid) {
             // Analytics has a different UUID, update ours to match
             this.uuid = analyticsUuid;
@@ -300,7 +300,7 @@ class UserJourneyTracker {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
             if (window.location.hostname.endsWith('.deriv.ae')) {
-           
+
                 // For staging.deriv.ae, if client_information cookie exists, cleanup events to keep only latest attribution
                 this.loadEvents(); // Ensure events are loaded before cleanup
                 this.cleanupEventsKeepLastAttribution();
@@ -623,7 +623,7 @@ class UserJourneyTracker {
 
         // Compare all meaningful keys
         const allKeys = new Set([...newKeys, ...lastKeys]);
-      
+
         for (const key of allKeys) {
             const newValue = newAttribution[key as keyof AttributionData];
             const lastValue = lastAttribution[key as keyof AttributionData];
@@ -774,8 +774,8 @@ class UserJourneyTracker {
             if (updatedEvent) {
                 this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
-              } 
-        
+              }
+
     }
 
     /**
@@ -807,7 +807,7 @@ class UserJourneyTracker {
         let payload;
 
         if(action === 'create'){
-            API_ENDPOINT='https://deriv-app.xano.io/api:gT6G3E2b/user_events'
+            API_ENDPOINT='https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events'
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -830,7 +830,7 @@ class UserJourneyTracker {
             }
         }
         else {
-            API_ENDPOINT = 'https://deriv-app.xano.io/api:gT6G3E2b/identify'
+            API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/identify'
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
@@ -838,7 +838,7 @@ class UserJourneyTracker {
             }
         }
         try {
-           
+
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: {
@@ -850,8 +850,8 @@ class UserJourneyTracker {
 
             if (!response.ok) {
                 console.error('Failed to send event to backend:', response.statusText);
-            } 
-        
+            }
+
 
         } catch (error) {
             console.error('Error sending event to backend:', error);
@@ -959,7 +959,7 @@ class UserJourneyTracker {
      * This associates the tracking data with a user ID and optionally resets tracking
      * @param derivUserId The user ID assigned after login
      */
-    public recordLogin(derivUserId: string): void { 
+    public recordLogin(derivUserId: string): void {
         this.isLoggedIn = true;
         this.derivUserId = derivUserId;
 
