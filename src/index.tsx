@@ -67,7 +67,7 @@ class UserJourneyTracker {
     private options: UserJourneyTrackerOptions;
     private events: PageViewEvent[] = [];  // Array of tracked page view events
     private storageKey: string = 'mt_event_history';  // Fixed storage key
-    private cookieName: string = 'mt_browser_uuid';     // Fixed cookie name
+    private cookieName: string = 'rudder_anonymous_id'; // Shared UUID cookie with analytics package
     private attributionCookieName: string = 'mt_current_attribution'; // Cookie name for attribution data
     private isInitialized: boolean = false; // Flag to prevent multiple initializations
     private uuid: string;                  // Unique identifier for this browser/device
@@ -198,26 +198,90 @@ class UserJourneyTracker {
     }
 
     /**
-     * Get existing UUID from cookie or create a new one if none exists
-     * This ensures consistent tracking across page refreshes, sessions, and subdomains
+     * Get existing UUID from shared analytics cookie (rudder_anonymous_id) or create a new one if none exists
+     * This ensures consistent tracking across page refreshes, sessions, and both analytics systems
+     * The library uses the same UUID that's already created by the deriv-analytics library
      * @returns The UUID for this browser/device
      */
     private getOrCreateUUID(): string {
         if (typeof window === 'undefined') return this.generateUUID();
 
+        // Try to get UUID from the shared analytics cookie (rudder_anonymous_id)
         let uuid = this.getCookie(this.cookieName);
 
         if (!uuid) {
-            // First visit - generate and store a new UUID
+            // No UUID found - generate and store a new one in the shared cookie
+            // This will only happen if analytics library hasn't created the cookie yet
             uuid = this.generateUUID();
             this.setCookie(
                 this.cookieName,
                 uuid,
                 this.options.cookieExpireDays as number
             );
+            console.log('Multi-touch attribution: Created new shared UUID:', uuid);
+        } else {
+            console.log('Multi-touch attribution: Using existing shared UUID from analytics:', uuid);
         }
 
         return uuid;
+    }
+    /**
+     * Get the current UUID being used by the tracker
+     * This UUID is shared with the analytics package via the rudder_anonymous_id cookie
+     * @returns The current UUID string
+     */
+    public getUUID(): string {
+        return this.uuid;
+    }
+
+    /**
+     * Set a new UUID for the tracker and synchronize it with analytics
+     * This method should be used when the analytics package generates a new UUID
+     * @param newUuid The new UUID to use
+     */
+    public setUUID(newUuid: string): void {
+        if (!newUuid || typeof newUuid !== 'string') {
+            console.error('Invalid UUID provided to setUUID');
+            return;
+        }
+
+        // Update internal UUID
+        this.uuid = newUuid;
+
+        // Update the shared cookie
+        this.setCookie(
+            this.cookieName,
+            newUuid,
+            this.options.cookieExpireDays as number
+        );
+
+        console.log('Multi-touch attribution UUID updated:', newUuid);
+    }
+
+    /**
+     * Synchronize UUID with analytics package
+     * This method ensures both systems are using the same UUID
+     * Should be called after analytics initialization or UUID changes
+     */
+    public syncWithAnalytics(): void {
+        if (typeof window === 'undefined') return;
+
+        // Get the current UUID from analytics cookie
+        const analyticsUuid = this.getCookie(this.cookieName);
+        
+        if (analyticsUuid && analyticsUuid !== this.uuid) {
+            // Analytics has a different UUID, update ours to match
+            this.uuid = analyticsUuid;
+            console.log('Multi-touch attribution UUID synchronized with analytics:', analyticsUuid);
+        } else if (!analyticsUuid && this.uuid) {
+            // Analytics doesn't have a UUID but we do, set it for analytics
+            this.setCookie(
+                this.cookieName,
+                this.uuid,
+                this.options.cookieExpireDays as number
+            );
+            console.log('Analytics UUID synchronized with multi-touch attribution:', this.uuid);
+        }
     }
 
     /**
@@ -284,6 +348,9 @@ class UserJourneyTracker {
             // Save this basic attribution data
             this.saveAttributionData();
         }
+
+        // Synchronize UUID with analytics package
+        this.syncWithAnalytics();
 
         // Track the current page view
         this.trackCurrentPageView();
