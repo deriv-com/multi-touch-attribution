@@ -218,9 +218,6 @@ class UserJourneyTracker {
                 uuid,
                 this.options.cookieExpireDays as number
             );
-            console.log('Multi-touch attribution: Created new shared UUID:', uuid);
-        } else {
-            console.log('Multi-touch attribution: Using existing shared UUID from analytics:', uuid);
         }
 
         return uuid;
@@ -254,8 +251,6 @@ class UserJourneyTracker {
             newUuid,
             this.options.cookieExpireDays as number
         );
-
-        console.log('Multi-touch attribution UUID updated:', newUuid);
     }
 
     /**
@@ -272,7 +267,6 @@ class UserJourneyTracker {
         if (analyticsUuid && analyticsUuid !== this.uuid) {
             // Analytics has a different UUID, update ours to match
             this.uuid = analyticsUuid;
-            console.log('Multi-touch attribution UUID synchronized with analytics:', analyticsUuid);
         } else if (!analyticsUuid && this.uuid) {
             // Analytics doesn't have a UUID but we do, set it for analytics
             this.setCookie(
@@ -280,7 +274,6 @@ class UserJourneyTracker {
                 this.uuid,
                 this.options.cookieExpireDays as number
             );
-            console.log('Analytics UUID synchronized with multi-touch attribution:', this.uuid);
         }
     }
 
