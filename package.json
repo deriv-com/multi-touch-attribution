@@ -13,6 +13,16 @@
       "require": "./dist/user-journey-tracker.umd.js"
     }
   },
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+   "author": "Aswathy, Shayan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deriv-com/multi-touch-attribution"
+  },
+  "homepage":"https://github.com/deriv-com/multi-touch-attribution",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "vite build",
@@ -33,6 +43,7 @@
     "vite": "^6.3.4",
     "vite-plugin-dts": "^3.0.0"
   },
+  "license": "MIT",
   "lint-staged": {
     "*.{js,md,ts}": "prettier --write"
   }
