@@ -106,6 +106,39 @@ class UserJourneyTracker {
     }
 
     /**
+     * Check if the current hostname is a production environment
+     * @returns True if production, false if staging/dev
+     */
+    private isProductionEnvironment(): boolean {
+        if (typeof window === 'undefined') return false;
+
+        const hostname = window.location.hostname;
+
+        // Staging/dev patterns: domains starting with dev-, staging-, dev-app-, staging-app-
+        const stagingPatterns = ['dev.', 'staging.', 'dev-app.', 'staging-app.'];
+
+        // Check if hostname starts with any staging pattern
+        const isStaging = stagingPatterns.some(pattern => hostname.startsWith(pattern));
+
+        if (isStaging) {
+            return false;
+        }
+
+        // Production patterns: base domains and app/hub subdomains without staging prefixes
+        const productionPatterns = [
+            /^(www\.)?deriv\.com$/,
+            /^(www\.)?deriv\.ae$/,
+            /^app\.deriv\.com$/,
+            /^app\.deriv\.ae$/,
+            /^hub\.deriv\.com$/,
+            /^[^.]*\.deriv\.com$/, // any single subdomain of deriv.com (but not staging prefixes)
+            /^[^.]*\.deriv\.ae$/   // any single subdomain of deriv.ae (but not staging prefixes)
+        ];
+
+        return productionPatterns.some(pattern => pattern.test(hostname));
+    }
+
+    /**
      * Get the top-level domain for cookie sharing across subdomains
      * @returns The top-level domain (e.g., .example.com)
      */
@@ -292,9 +325,9 @@ class UserJourneyTracker {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
-            if (window.location.hostname.endsWith('.deriv.ae')) {
+            if (!this.isProductionEnvironment()) {
 
-                // For staging.deriv.ae, if client_information cookie exists, cleanup events to keep only latest attribution
+                // For staging/dev environments, if client_information cookie exists, cleanup events to keep only latest attribution
                 this.loadEvents(); // Ensure events are loaded before cleanup
                 this.cleanupEventsKeepLastAttribution();
             }
@@ -800,7 +833,12 @@ class UserJourneyTracker {
         let payload;
 
         if(action === 'create'){
-            API_ENDPOINT='https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events'
+            // Set API endpoint based on environment (production or staging)
+            if (this.isProductionEnvironment()) {
+                API_ENDPOINT = 'https://api.deriv.com/multi-touch-attribution/v1/user_events';
+            } else {
+                API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events';
+            }
             payload = {
                 data: {
                     uuid: this.uuid,
@@ -823,7 +861,12 @@ class UserJourneyTracker {
             }
         }
         else {
-            API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/identify'
+            // Set API endpoint based on environment (production or staging)
+            if (this.isProductionEnvironment()) {
+                API_ENDPOINT = 'https://api.deriv.com/multi-touch-attribution/v1/identify';
+            } else {
+                API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/identify';
+            }
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
