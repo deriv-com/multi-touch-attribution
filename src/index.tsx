@@ -110,6 +110,7 @@ class UserJourneyTracker {
      * @returns True if production, false if staging/dev
      */
     private isProductionEnvironment(): boolean {
+
         if (typeof window === 'undefined') return false;
 
         const hostname = window.location.hostname;
