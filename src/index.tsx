@@ -836,7 +836,7 @@ class UserJourneyTracker {
         if(action === 'create'){
             // Set API endpoint based on environment (production or staging)
             if (this.isProductionEnvironment()) {
-                API_ENDPOINT = 'https://api.deriv.com/multi-touch-attribution/v1/user_events';
+                API_ENDPOINT = 'https://api.deriv.ae/multi-touch-attribution/v1/user_events';
             } else {
                 API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events';
             }
