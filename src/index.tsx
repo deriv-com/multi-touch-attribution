@@ -287,6 +287,81 @@ class UserJourneyTracker {
         );
     }
 
+    public getGAClientId(): string {
+        // Try to get the _ga cookie
+        const gaCookie = this.getCookie('_ga');
+        
+        if (gaCookie) {
+            // _ga cookie format is typically GA1.{version}.{random}.{timestamp}
+            // We want to return the entire cookie value
+            return gaCookie;
+        }
+        
+        // If _ga cookie doesn't exist, generate a new GA client ID
+        // GA client ID format: GA1.1.{random}.{timestamp}
+        const timestamp = Math.round(new Date().getTime() / 1000);
+        const random = Math.floor(Math.random() * 2147483647); // Random number between 0 and 2^31-1
+
+        const generated_ga = `GA1.1.${random}.${timestamp}`;
+        this.setCookie(
+          "_ga",
+          generated_ga,
+          this.options.cookieExpireDays as number
+        );
+        
+        return generated_ga;
+    }
+
+    public getGAMeasurementID(): { key: string; value: string } {
+        // Determine the domain by extracting the last two parts of the hostname
+        const domain = window.location.hostname.split(".").slice(-2).join(".");
+        
+        // Set the appropriate cookie key based on the domain
+        const cookieKey = domain === "deriv.com" ? "_ga_R0D2Z1965W" : "_ga_F3QTR4CDHR";
+        
+        // Try to get the cookie value
+        const cookieValue = this.getCookie(cookieKey);
+        
+        if (cookieValue) {
+            // Return the existing cookie value
+            return {
+                key: cookieKey,
+                value: cookieValue
+            };
+        }
+    
+        // If cookie doesn't exist, generate a new value
+        const generatedValue = this.generateMeasurementIDValue();
+        
+        // Store the generated value in a cookie
+        this.setCookie(
+            cookieKey,
+            generatedValue,
+            this.options.cookieExpireDays as number
+        );
+        
+        // Return the key-value pair
+        return {
+            key: cookieKey,
+            value: generatedValue
+        };
+    }
+  
+    /**
+     * Generate a value for GA Measurement ID cookie
+     * @returns A generated measurement ID value
+     */
+    private generateMeasurementIDValue(): string {
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        // Calculate last activity (current + 5 seconds)
+        const lastActivityTimestamp = currentTimestamp + 5;
+        // Build the GA4 cookie value string
+        const cookieValue = `GS2.1.s${currentTimestamp}$o1$g1$t${lastActivityTimestamp}$j50$l0$h0`;
+        return cookieValue;
+    }
+
+    
+
     /**
      * Synchronize UUID with analytics package
      * This method ensures both systems are using the same UUID
@@ -435,7 +510,7 @@ class UserJourneyTracker {
         // Extract UTM parameters
         const utmParams = [
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
-            'utm_ad_id', 'utm_ad_group_id', 'utm_campaign_id'
+            'utm_ad_id', 'utm_ad_group_id', 'utm_campaign_id',
         ];
 
         utmParams.forEach(param => {
@@ -446,13 +521,35 @@ class UserJourneyTracker {
         });
 
         // Extract click IDs
-        const clickIds = ['gclid', 'fbclid', 'mkclid'];
+        const clickIds = [
+          "gclid",
+          "fbclid",
+          "mkclid",
+          "wbraid",
+          "gbraid",
+          "ttclid"
+        ];
         clickIds.forEach(param => {
             const value = params.get(param);
             if (value) {
                 (attribution as any)[param] = value;
             }
         });
+        
+        // Handle ScCid separately - store as scclid
+        const scCidValue = params.get("ScCid");
+        if (scCidValue) {
+            (attribution as any)["scclid"] = scCidValue;
+        }
+        const _ga = this.getGAClientId();
+        if (_ga) {
+            (attribution as any)["_ga"] = _ga;
+        }
+        const _gaMeasurementObj = this.getGAMeasurementID();
+        if (_gaMeasurementObj) {
+            (attribution as any)[_gaMeasurementObj.key] = _gaMeasurementObj.value;
+        }
+        
 
         // Add referrer if available
         if (document.referrer) {
