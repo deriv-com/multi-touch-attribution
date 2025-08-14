@@ -360,7 +360,44 @@ class UserJourneyTracker {
         return cookieValue;
     }
 
-    
+    private getFbpCookie(): string {
+        const fbpCookie = this.getCookie("_fbp");
+        if (fbpCookie) {
+            return fbpCookie;
+        }
+        const version = 1;
+        const creationTime = Date.now(); // Current timestamp in milliseconds
+        const randomNumber = Math.floor(Math.random() * 2147483647); // Random 32-bit integer
+        const fbpValue = `fb.${version}.${creationTime}.${randomNumber}`;
+        this.setCookie(
+          "_fbp",
+          fbpValue,
+          this.options.cookieExpireDays as number
+        );
+        return fbpValue;
+    }
+
+    private getFbcCookie(): string | null {
+        const fbcCookie = this.getCookie("_fbc");
+        if (fbcCookie) return fbcCookie;
+
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        const fbclid = params.get("fbclid");
+        if (!fbclid) return null;
+
+        // Generate _fbc cookie value
+        const version = 1;
+        const creationTime = Date.now(); // Current timestamp in milliseconds
+        
+        const fbcValue = `fb.${version}.${creationTime}.${fbclid}`;
+        this.setCookie(
+          "_fbc",
+          fbcValue,
+          this.options.cookieExpireDays as number
+        );
+        return fbcValue;
+    }
 
     /**
      * Synchronize UUID with analytics package
@@ -541,16 +578,26 @@ class UserJourneyTracker {
         if (scCidValue) {
             (attribution as any)["scclid"] = scCidValue;
         }
-        const _ga = this.getGAClientId();
-        if (_ga) {
-            (attribution as any)["_ga"] = _ga;
-        }
+        // Helper function to add non-null values to attribution
+        const addToAttribution = (key: string, value: string | null | undefined) => {
+            if (value) {
+                (attribution as Record<string, string>)[key] = value;
+            }
+        };
+
+        // Add tracking IDs to attribution
+        addToAttribution("_ga", this.getGAClientId());
+        
+        // Handle GA Measurement ID which has a different structure
         const _gaMeasurementObj = this.getGAMeasurementID();
         if (_gaMeasurementObj) {
-            (attribution as any)[_gaMeasurementObj.key] = _gaMeasurementObj.value;
+            (attribution as Record<string, string>)[_gaMeasurementObj.key] = _gaMeasurementObj.value;
         }
         
-
+        // Add Facebook tracking parameters
+        addToAttribution("fbp", this.getFbpCookie());
+        addToAttribution("fbc", this.getFbcCookie());
+        
         // Add referrer if available
         if (document.referrer) {
             try {
