@@ -469,7 +469,7 @@ class UserJourneyTracker {
 
         // Add landing page
         attribution.landing_page = window.location.href;
-
+console.log(' attribution.landing_page', attribution.landing_page)
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
 
@@ -496,6 +496,7 @@ class UserJourneyTracker {
         // If there's no referrer or landing page, ensure we at least have these basic attributes
         if (!hasAttribution && Object.keys(newAttribution).length > 0) {
             // Always save at least the landing page and timestamp on first visit
+            console.log('currentAttribution landing page',this.currentAttribution.landing_page)
             if (this.currentAttribution.landing_page === undefined) {
                 return true;
             }
@@ -607,11 +608,9 @@ class UserJourneyTracker {
 
         // No new attribution data, use the persisted attribution if available
         if (Object.keys(this.currentAttribution).length > 0) {
-            // Add the current page as landing_page
-            return {
-                ...this.currentAttribution,
-                landing_page:  window.location.href
-            };
+            // Return the persisted attribution without overwriting the original landing_page
+            // The landing_page should remain the original page where the user first landed
+            return this.currentAttribution;
         }
 
         // No persisted attribution either, just return the basic data
@@ -840,6 +839,7 @@ class UserJourneyTracker {
             } else {
                 API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events';
             }
+            console.log('landing page', event.attribution.landing_page);
             payload = {
                 data: {
                     uuid: this.uuid,
