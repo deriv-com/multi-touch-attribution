@@ -864,7 +864,7 @@ console.log(' attribution.landing_page', attribution.landing_page)
         else {
             // Set API endpoint based on environment (production or staging)
             if (this.isProductionEnvironment()) {
-                API_ENDPOINT = 'https://api.deriv.com/multi-touch-attribution/v1/identify';
+                API_ENDPOINT = 'https://api.deriv.ae/multi-touch-attribution/v1/identify';
             } else {
                 API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/identify';
             }
