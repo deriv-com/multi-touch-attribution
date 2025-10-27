@@ -116,7 +116,7 @@ class UserJourneyTracker {
         const hostname = window.location.hostname;
 
         // Staging/dev patterns: domains starting with dev-, staging-, dev-app-, staging-app-
-        const stagingPatterns = ['dev.', 'staging.', 'dev-app.', 'staging-app.'];
+        const stagingPatterns = ['dev.', 'dev-', 'staging.', 'dev-app.', 'staging-app.', 'staging-'];
 
         // Check if hostname starts with any staging pattern
         const isStaging = stagingPatterns.some(pattern => hostname.startsWith(pattern));
@@ -825,20 +825,34 @@ console.log(' attribution.landing_page', attribution.landing_page)
     }
 
     /**
+     * Get the appropriate API endpoint based on hostname and environment
+     * @param path The API path (e.g., 'user_events', 'identify')
+     * @returns The complete API endpoint URL
+     */
+    private getApiEndpoint(path: string): string {
+        if (typeof window === 'undefined') return '';
+
+        const hostname = window.location.hostname;
+        const isProduction = this.isProductionEnvironment();
+        const isDerivAE = hostname.includes('deriv.ae');
+
+        const baseUrl = isDerivAE
+            ? (isProduction ? 'https://api.deriv.ae' : 'https://staging-api.deriv.ae')
+            : (isProduction ? 'https://api-core.deriv.com' : 'https://staging-api-core.deriv.com');
+
+        return `${baseUrl}/multi-touch-attribution/v1/${path}`;
+    }
+
+    /**
      * Send a single event to the backend API
      * @param event The event to send
      */
     private async sendEventToBackend(event: PageViewEvent, event_type: EventType = 'pageview', action: 'create' | 'update' = 'create'): Promise<void> {
-        let API_ENDPOINT;
+        let API_ENDPOINT: string;
         let payload;
 
         if(action === 'create'){
-            // Set API endpoint based on environment (production or staging)
-            if (this.isProductionEnvironment()) {
-                API_ENDPOINT = 'https://api.deriv.ae/multi-touch-attribution/v1/user_events';
-            } else {
-                API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/user_events';
-            }
+            API_ENDPOINT = this.getApiEndpoint('user_events');
             console.log('landing page', event.attribution.landing_page);
             payload = {
                 data: {
@@ -862,12 +876,7 @@ console.log(' attribution.landing_page', attribution.landing_page)
             }
         }
         else {
-            // Set API endpoint based on environment (production or staging)
-            if (this.isProductionEnvironment()) {
-                API_ENDPOINT = 'https://api.deriv.ae/multi-touch-attribution/v1/identify';
-            } else {
-                API_ENDPOINT = 'https://staging-api.deriv.ae/multi-touch-attribution/v1/identify';
-            }
+            API_ENDPOINT = this.getApiEndpoint('identify');
             payload = {
                 uuid: this.uuid,
                 is_logged_in: this.isLoggedIn || false,
