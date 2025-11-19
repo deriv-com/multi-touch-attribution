@@ -825,6 +825,24 @@ console.log(' attribution.landing_page', attribution.landing_page)
     }
 
     /**
+     * Remove URL parameters from a URL string
+     * @param url The URL to strip parameters from
+     * @returns The URL without query parameters
+     */
+    private stripUrlParams(url: string | undefined): string | undefined {
+        if (!url) return undefined;
+        
+        try {
+            const urlObj = new URL(url);
+            // Return URL without search params (query string)
+            return `${urlObj.origin}${urlObj.pathname}`;
+        } catch (e) {
+            // If URL parsing fails, return the original URL
+            return url;
+        }
+    }
+
+    /**
      * Get the appropriate API endpoint based on hostname and environment
      * @param path The API path (e.g., 'user_events', 'identify')
      * @returns The complete API endpoint URL
@@ -869,8 +887,8 @@ console.log(' attribution.landing_page', attribution.landing_page)
                     gclid: this.currentAttribution.gclid || undefined,
                     fbclid: this.currentAttribution.fbclid || undefined,
                     mkclid: this.currentAttribution.mkclid || undefined,
-                    referrer_url: event.referrer || undefined,
-                    landing_page_url: event.attribution.landing_page || undefined,
+                    referrer_url: this.stripUrlParams(event.referrer),
+                    landing_page_url: this.stripUrlParams(event.attribution.landing_page),
                     is_logged_in: this.isLoggedIn || false,
                 }
             }
