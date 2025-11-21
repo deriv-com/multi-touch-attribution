@@ -326,12 +326,11 @@ class UserJourneyTracker {
                 try {
                     const clientInfo = JSON.parse(loginCookie);
                     if (clientInfo) {
-            if (!this.isProductionEnvironment()) {
-
-                // For staging/dev environments, if client_information cookie exists, cleanup events to keep only latest attribution
-                this.loadEvents(); // Ensure events are loaded before cleanup
-                this.cleanupEventsKeepLastAttribution();
-            }
+                        if (!this.isProductionEnvironment()) {
+                            // For staging/dev environments, if client_information cookie exists, cleanup events to keep only latest attribution
+                            this.loadEvents(); // Ensure events are loaded before cleanup
+                            this.cleanupEventsKeepLastAttribution();
+                        }
                         if (clientInfo.user_id) {
                             this.derivUserId = clientInfo.user_id;
                             this.isLoggedIn = true;
@@ -800,7 +799,7 @@ console.log(' attribution.landing_page', attribution.landing_page)
             if (updatedEvent) {
                 this.sendEventToBackend(updatedEvent, 'pageview', 'update');
             }
-              }
+        }
 
     }
 
@@ -1057,6 +1056,12 @@ console.log(' attribution.landing_page', attribution.landing_page)
      * @param derivUserId The user ID assigned after signup
      */
     public recordSignup(derivUserId: string): void {
+
+        const isSignupInProgress = this.getCookie("mt-signup-in-progress");
+        if (!isSignupInProgress) {
+            return;
+        }
+
         this.isLoggedIn = true;
         this.derivUserId = derivUserId;
 
@@ -1090,6 +1095,17 @@ console.log(' attribution.landing_page', attribution.landing_page)
 
         // Set flag to indicate signup event was sent
         this.hasSentSignupEvent = true;
+
+        // Remove signup in-progress flag since signup completed
+        this.setCookie("mt-signup-in-progress", "", -1);
+    }
+
+    public initiateSignup(): void {
+        this.setCookie(
+            "mt-signup-in-progress",
+            "true",
+            this.options.cookieExpireDays as number
+        );
     }
 
      /* Export journey data for sending to server
