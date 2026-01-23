@@ -431,6 +431,27 @@ class UserJourneyTracker {
         const params = url.searchParams;
         const attribution: AttributionData = {};
 
+        const normalizeClickId = (raw: string): string | undefined => {
+            // Some upstream redirects incorrectly concatenate extra text/URLs into click IDs.
+            // Keep only the leading token and drop obviously-invalid values.
+            let value = raw.trim();
+            if (!value) return undefined;
+
+            // If a full URL got appended (decoded), strip everything starting at http(s)://
+            const httpIndex = value.search(/https?:\/\//i);
+            if (httpIndex > 0) value = value.slice(0, httpIndex).trim();
+
+            // Keep only the first whitespace-delimited token
+            value = value.split(/\s+/)[0]?.trim() ?? '';
+            if (!value) return undefined;
+
+            // Conservative validation: common click IDs are URL-safe tokens
+            if (!/^[A-Za-z0-9_-]+$/.test(value)) return undefined;
+            if (value.length < 10 || value.length > 200) return undefined;
+
+            return value;
+        };
+
         // Extract UTM parameters
         const utmParams = [
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -449,7 +470,8 @@ class UserJourneyTracker {
         clickIds.forEach(param => {
             const value = params.get(param);
             if (value) {
-                (attribution as any)[param] = value;
+                const normalized = normalizeClickId(value);
+                if (normalized) (attribution as any)[param] = normalized;
             }
         });
 
@@ -468,7 +490,6 @@ class UserJourneyTracker {
 
         // Add landing page
         attribution.landing_page = window.location.href;
-console.log(' attribution.landing_page', attribution.landing_page)
         // Add timestamp when this attribution data was captured
         attribution.attribution_timestamp = Date.now();
 
