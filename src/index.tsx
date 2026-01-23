@@ -420,6 +420,67 @@ class UserJourneyTracker {
     }
 
     /**
+     * Normalize a click ID value by cleaning malformed data
+     * @param raw The raw click ID value
+     * @returns Normalized click ID or undefined if invalid
+     */
+    private normalizeClickId(raw: string): string | undefined {
+        // Some upstream redirects incorrectly concatenate extra text/URLs into click IDs.
+        // Keep only the leading token and drop obviously-invalid values.
+        let value = raw.trim();
+        if (!value) return undefined;
+
+        // If a full URL got appended (decoded), strip everything starting at http(s)://
+        const httpIndex = value.search(/https?:\/\//i);
+        if (httpIndex > 0) value = value.slice(0, httpIndex).trim();
+
+        // Keep only the first whitespace-delimited token
+        value = value.split(/\s+/)[0]?.trim() ?? '';
+        if (!value) return undefined;
+
+        // Conservative validation: common click IDs are URL-safe tokens
+        if (!/^[A-Za-z0-9_-]+$/.test(value)) return undefined;
+        // Trim to 200 chars if longer (backend accepts max 200 chars)
+        if (value.length > 200) value = value.slice(0, 200);
+
+        return value;
+    }
+
+    /**
+     * Normalize a UTM parameter value by cleaning malformed data
+     * @param raw The raw UTM parameter value
+     * @returns Normalized UTM value or undefined if invalid
+     */
+    private normalizeUtmParam(raw: string): string | undefined {
+        // UTM parameters can contain spaces, hyphens, and some special chars, but should not
+        // contain URLs or obviously malformed data from redirect concatenation.
+        let value = raw.trim();
+        if (!value) return undefined;
+
+        // If a full URL got appended (decoded), strip everything starting at http(s)://
+        const httpIndex = value.search(/https?:\/\//i);
+        if (httpIndex > 0) value = value.slice(0, httpIndex).trim();
+
+        // Keep only the first line (in case newlines got in somehow)
+        value = value.split(/[\r\n]+/)[0]?.trim() ?? '';
+        if (!value) return undefined;
+
+        // UTM params should be reasonable length (1-200 chars)
+        // Trim to 200 chars if longer (backend accepts max 200 chars)
+        if (value.length < 1) return undefined;
+        if (value.length > 200) value = value.slice(0, 200);
+
+        // Reject values that look like full URLs (even without http://)
+        if (new RegExp('^[a-z][a-z0-9+.-]*://', 'i').test(value)) return undefined;
+
+        // Allow alphanumeric, spaces, hyphens, underscores, dots, and common URL-safe chars
+        // but reject obviously malformed values with excessive special chars
+        if (!/^[A-Za-z0-9\s._-]+$/.test(value)) return undefined;
+
+        return value;
+    }
+
+    /**
      * Parse attribution data from the current URL
      * This extracts UTM parameters, click IDs, and other attribution information
      * @returns Attribution data object
@@ -431,27 +492,6 @@ class UserJourneyTracker {
         const params = url.searchParams;
         const attribution: AttributionData = {};
 
-        const normalizeClickId = (raw: string): string | undefined => {
-            // Some upstream redirects incorrectly concatenate extra text/URLs into click IDs.
-            // Keep only the leading token and drop obviously-invalid values.
-            let value = raw.trim();
-            if (!value) return undefined;
-
-            // If a full URL got appended (decoded), strip everything starting at http(s)://
-            const httpIndex = value.search(/https?:\/\//i);
-            if (httpIndex > 0) value = value.slice(0, httpIndex).trim();
-
-            // Keep only the first whitespace-delimited token
-            value = value.split(/\s+/)[0]?.trim() ?? '';
-            if (!value) return undefined;
-
-            // Conservative validation: common click IDs are URL-safe tokens
-            if (!/^[A-Za-z0-9_-]+$/.test(value)) return undefined;
-            if (value.length < 10 || value.length > 200) return undefined;
-
-            return value;
-        };
-
         // Extract UTM parameters
         const utmParams = [
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -461,7 +501,8 @@ class UserJourneyTracker {
         utmParams.forEach(param => {
             const value = params.get(param);
             if (value) {
-                (attribution as any)[param] = value;
+                const normalized = this.normalizeUtmParam(value);
+                if (normalized) (attribution as any)[param] = normalized;
             }
         });
 
@@ -470,7 +511,7 @@ class UserJourneyTracker {
         clickIds.forEach(param => {
             const value = params.get(param);
             if (value) {
-                const normalized = normalizeClickId(value);
+                const normalized = this.normalizeClickId(value);
                 if (normalized) (attribution as any)[param] = normalized;
             }
         });
@@ -578,6 +619,47 @@ class UserJourneyTracker {
     }
 
     /**
+     * Sanitize attribution data to clean up any malformed values
+     * This is used when loading from cookies to ensure old bad data is cleaned
+     * @param attribution The attribution data to sanitize
+     * @returns Sanitized attribution data
+     */
+    private sanitizeAttributionData(attribution: AttributionData): AttributionData {
+        const normalized: AttributionData = { ...attribution };
+
+        // Sanitize click IDs
+        const clickIds: (keyof AttributionData)[] = ['gclid', 'fbclid', 'mkclid'];
+        clickIds.forEach(key => {
+            if (normalized[key] && typeof normalized[key] === 'string') {
+                const sanitized = this.normalizeClickId(normalized[key] as string);
+                if (sanitized) {
+                    (normalized as any)[key] = sanitized;
+                } else {
+                    delete (normalized as any)[key];
+                }
+            }
+        });
+
+        // Sanitize UTM parameters
+        const utmParams: (keyof AttributionData)[] = [
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
+            'utm_ad_id', 'utm_ad_group_id', 'utm_campaign_id'
+        ];
+        utmParams.forEach(key => {
+            if (normalized[key] && typeof normalized[key] === 'string') {
+                const sanitized = this.normalizeUtmParam(normalized[key] as string);
+                if (sanitized) {
+                    (normalized as any)[key] = sanitized;
+                } else {
+                    delete (normalized as any)[key];
+                }
+            }
+        });
+
+        return normalized;
+    }
+
+    /**
      * Load saved attribution data from cookie
      * This restores attribution data across page views and domains
      */
@@ -589,19 +671,22 @@ class UserJourneyTracker {
             if (savedAttribution) {
                 const attribution = JSON.parse(savedAttribution);
 
+                // Sanitize the loaded attribution data to clean up any old malformed values
+                const sanitizedAttribution = this.sanitizeAttributionData(attribution);
+
                 // Check if the attribution data is still valid (not expired)
-                if (attribution.attribution_timestamp) {
+                if (sanitizedAttribution.attribution_timestamp) {
                     const now = Date.now();
-                    const ageInMinutes = (now - attribution.attribution_timestamp) / (1000 * 60);
+                    const ageInMinutes = (now - sanitizedAttribution.attribution_timestamp) / (1000 * 60);
 
                     if (ageInMinutes <= (this.options.attributionExpiry as number)) {
-                        this.currentAttribution = attribution;
+                        this.currentAttribution = sanitizedAttribution;
                     } else {
                         // Attribution data has expired, clear it
                         this.setCookie(this.attributionCookieName, '', -1); // Expire the cookie
                     }
                 } else {
-                    this.currentAttribution = attribution;
+                    this.currentAttribution = sanitizedAttribution;
                 }
             }
         } catch (e) {
