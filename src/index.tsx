@@ -830,14 +830,14 @@ console.log(' attribution.landing_page', attribution.landing_page)
      */
     private stripUrlParams(url: string | undefined): string | undefined {
         if (!url) return undefined;
-        
+
         try {
             const urlObj = new URL(url);
-            // Return URL without search params (query string)
+            // Just remove query and hash, keep origin + pathname
             return `${urlObj.origin}${urlObj.pathname}`;
-        } catch (e) {
-            // If URL parsing fails, return the original URL
-            return url;
+        } catch {
+            // If it's not a valid absolute URL, don't send it
+            return undefined;
         }
     }
 
