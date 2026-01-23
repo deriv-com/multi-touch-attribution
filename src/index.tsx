@@ -793,11 +793,13 @@ console.log(' attribution.landing_page', attribution.landing_page)
         if (this.currentPageEventId) {
             this.updateEventLoginState(this.currentPageEventId, isLoggedIn);
 
-            // Find the event and send the updated version to backend with action 'update'
+            // Find the event and send the updated version to backend with action 'update' (async, non-blocking)
             const updatedEvent = this.events.find(event => event.event_id === this.currentPageEventId);
 
             if (updatedEvent) {
-                this.sendEventToBackend(updatedEvent, 'pageview', 'update');
+                this.sendEventToBackend(updatedEvent, 'pageview', 'update').catch(error => {
+                    console.error('Failed to send update event:', error);
+                });
             }
         }
 
@@ -819,8 +821,10 @@ console.log(' attribution.landing_page', attribution.landing_page)
         // Save updated events to local storage
         this.saveEventsToLocalStorage();
 
-        // send event to backend
-        this.sendEventToBackend(event, 'pageview', 'create');
+        // send event to backend (async, non-blocking - fire and forget)
+        this.sendEventToBackend(event, 'pageview', 'create').catch(error => {
+            console.error('Failed to send event:', error);
+        });
     }
 
     /**
@@ -1090,8 +1094,10 @@ console.log(' attribution.landing_page', attribution.landing_page)
         // Save updated events to localStorage
         this.saveEventsToLocalStorage();
 
-        // Optionally send the signup event to backend
-        this.sendEventToBackend(signupEvent, 'signup', 'create');
+        // Optionally send the signup event to backend (async, non-blocking - fire and forget)
+        this.sendEventToBackend(signupEvent, 'signup', 'create').catch(error => {
+            console.error('Failed to send signup event:', error);
+        });
 
         // Set flag to indicate signup event was sent
         this.hasSentSignupEvent = true;
