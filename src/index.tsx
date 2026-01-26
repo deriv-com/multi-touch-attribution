@@ -449,13 +449,27 @@ class UserJourneyTracker {
     /**
      * Normalize a UTM parameter value by cleaning malformed data
      * @param raw The raw UTM parameter value
+     * @param paramName Optional parameter name for special handling (e.g., utm_source)
      * @returns Normalized UTM value or undefined if invalid
      */
-    private normalizeUtmParam(raw: string): string | undefined {
+    private normalizeUtmParam(raw: string, paramName?: string): string | undefined {
         // UTM parameters can contain spaces, hyphens, and some special chars, but should not
         // contain URLs or obviously malformed data from redirect concatenation.
         let value = raw.trim();
         if (!value) return undefined;
+
+        // Special handling for utm_source: if it's a full URL, remove protocol and keep domain + path
+        if (paramName === 'utm_source') {
+            // Match any URL format: protocol://domain/path
+            const urlMatch = value.match(/^[a-z][a-z0-9+.-]*:\/\/(.+)$/i);
+            if (urlMatch) {
+                // Remove protocol prefix (http://, https://, ftp://, etc.) and keep domain + path
+                value = urlMatch[1];
+                // Trim to 200 chars
+                if (value.length > 200) value = value.slice(0, 200);
+                return value;
+            }
+        }
 
         // If a full URL got appended (decoded), strip everything starting at http(s)://
         const httpIndex = value.search(/https?:\/\//i);
@@ -501,7 +515,7 @@ class UserJourneyTracker {
         utmParams.forEach(param => {
             const value = params.get(param);
             if (value) {
-                const normalized = this.normalizeUtmParam(value);
+                const normalized = this.normalizeUtmParam(value, param);
                 if (normalized) (attribution as any)[param] = normalized;
             }
         });
@@ -647,7 +661,7 @@ class UserJourneyTracker {
         ];
         utmParams.forEach(key => {
             if (normalized[key] && typeof normalized[key] === 'string') {
-                const sanitized = this.normalizeUtmParam(normalized[key] as string);
+                const sanitized = this.normalizeUtmParam(normalized[key] as string, key);
                 if (sanitized) {
                     (normalized as any)[key] = sanitized;
                 } else {
