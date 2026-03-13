@@ -1224,6 +1224,7 @@ class UserJourneyTracker {
 
         // Remove signup in-progress flag since signup completed
         this.setCookie("mt-signup-in-progress", "", -1);
+        this.setCookie("mt_current_attribution", "", -1);
     }
 
     public initiateSignup(): void {
